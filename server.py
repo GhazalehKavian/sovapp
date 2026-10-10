@@ -1,4 +1,16 @@
-﻿import http.server
+import os
+import sys
+
+# Ensure UTF-8 console output on Windows
+if sys.platform == 'win32':
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+import http.server
 import json
 import os
 import sqlite3
