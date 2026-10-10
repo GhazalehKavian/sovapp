@@ -123,6 +123,12 @@
             <span id="diskSyncText">SQLite: فعال</span>
           </div>
 
+          <!-- همگام‌سازی Wi-Fi -->
+          <button id="wifiSyncBtn" onclick="openWifiSyncModal()" title="همگام‌سازی صندوق کارهای مشترک در شبکه Wi-Fi" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-sky-950/40 border border-sky-900/60 text-sky-300 hover:bg-sky-900/60 transition">
+            <i data-lucide="wifi" class="w-4 h-4 text-sky-400"></i>
+            <span class="hidden sm:inline">همگام‌سازی Wi-Fi</span>
+          </button>
+
           <!-- راهنما -->
           <button onclick="openGuideModal()" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-amber-950/40 border border-amber-900/60 text-amber-300 hover:bg-amber-900/60 transition">
             <i data-lucide="book-open" class="w-4 h-4 text-amber-500"></i>
@@ -561,6 +567,98 @@
   </div>
 
 
+  
+  <!-- ================= MODAL: همگام‌سازی وای‌فای (Wi-Fi Sync) ================= -->
+  <div id="wifiSyncModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 hidden backdrop-blur-sm transition-opacity">
+    <div class="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0f172a] shadow-2xl border border-slate-800 overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0b0f19]">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30">
+            <i data-lucide="wifi" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-100">همگام‌سازی صندوق کارها در Wi-Fi</h3>
+            <p class="text-xs text-slate-400">اتصال و همگام‌سازی دوطرفه میان گوشی و کامپیوتر در یک شبکه</p>
+          </div>
+        </div>
+        <button onclick="closeWifiSyncModal()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="p-6 overflow-y-auto space-y-5 text-xs sm:text-sm leading-relaxed scrollbar-visible">
+        
+        <!-- Box 1: آدرس اتصال برای گوشی -->
+        <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200 flex items-center gap-2">
+              <i data-lucide="smartphone" class="w-4 h-4 text-sky-400"></i>
+              <span>آدرس اتصال در گوشی (همین Wi-Fi):</span>
+            </span>
+            <span class="text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-900/60 px-2 py-0.5 rounded-full font-medium">آماده اتصال</span>
+          </div>
+
+          <div id="wifiIpList" class="space-y-2">
+            <!-- Dynamic IP addresses will be populated here -->
+          </div>
+
+          <p class="text-[11px] text-slate-400">
+            برای اجرای برنامه روی گوشی، کافیست گوشی شما به همین مودم/وای‌فای وصل باشد و یکی از آدرس‌های بالا را در مرورگر گوشی باز کنید.
+          </p>
+        </div>
+
+        <!-- Box 2: عملکرد مستقل و مشترک -->
+        <div class="grid sm:grid-cols-2 gap-3 text-xs">
+          <div class="rounded-xl bg-slate-900/60 border border-slate-800/80 p-3.5 space-y-1.5">
+            <div class="font-bold text-amber-300 flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              <span>کار مستقل روی گوشی</span>
+            </div>
+            <p class="text-slate-400 leading-normal">
+              روی گوشی می‌توانید اتصالات و کارهایتان را کاملاً مستقل ثبت و مدیریت کنید، حتی بدون نیاز به باز بودن کامپیوتر.
+            </p>
+          </div>
+          <div class="rounded-xl bg-slate-900/60 border border-slate-800/80 p-3.5 space-y-1.5">
+            <div class="font-bold text-sky-300 flex items-center gap-1.5">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>همگام‌سازی دوطرفه</span>
+            </div>
+            <p class="text-slate-400 leading-normal">
+              با زدن دکمه زیر، تسک‌های گوشی به کامپیوتر منتقل شده و کارهای جدید کامپیوتر نیز به گوشی فرستاده می‌شوند.
+            </p>
+          </div>
+        </div>
+
+        <!-- Box 3: عملیات همگام‌سازی -->
+        <div class="rounded-xl bg-sky-950/20 border border-sky-900/40 p-4 space-y-3">
+          <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <input type="text" id="wifiServerUrlInput" placeholder="آدرس سرور مثلاً http://192.168.1.5:8000" dir="ltr" class="flex-1 font-mono text-xs p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200">
+            <button id="btnTriggerWifiSync" onclick="triggerManualWifiSync()" class="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition">
+              <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+              <span>همگام‌سازی الان</span>
+            </button>
+          </div>
+          <div id="wifiSyncStatusReport" class="text-xs text-slate-400">
+            وضعیت: آماده همگام‌سازی
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-6 py-3.5 border-t border-slate-800 bg-[#0b0f19]">
+        <span class="text-xs text-slate-500">همگام‌سازی مستقیم بدون دخالت اینترنت یا سرور ابری</span>
+        <button onclick="closeWifiSyncModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">
+          بستن
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ================= JAVASCRIPT CORE ================= -->
   <script>
     const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
@@ -731,6 +829,7 @@
           body: JSON.stringify({ topic: currentNtfyTopic })
         });
         const data = await res.json();
+          if (data.network_ips) cachedNetworkIps = data.network_ips;
         if (res.ok) {
           alert(`نوتیفیکیشن با موفقیت به کانال [${data.topic}] ارسال شد! گوشی خود را بررسی کنید.`);
         } else {
@@ -1550,6 +1649,89 @@ function switchGuideTab(tab) {
         }
       });
       lucide.createIcons();
+    }
+
+    
+    let cachedNetworkIps = [];
+
+    function openWifiSyncModal() {
+      const modal = document.getElementById('wifiSyncModal');
+      if (!modal) return;
+
+      const ipListContainer = document.getElementById('wifiIpList');
+      const currentPort = window.location.port || '8000';
+      const currentHost = window.location.hostname;
+
+      ipListContainer.innerHTML = '';
+      const displayIps = (cachedNetworkIps.length > 0) ? cachedNetworkIps : [currentHost, '127.0.0.1'];
+
+      displayIps.forEach(ip => {
+        const fullUrl = `http://${ip}:${currentPort}/tasks.html`;
+        ipListContainer.innerHTML += `
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/80 border border-slate-800">
+            <span class="font-mono text-xs text-sky-300 font-semibold truncate select-all" dir="ltr">${fullUrl}</span>
+            <button onclick="navigator.clipboard.writeText('${fullUrl}'); alert('آدرس کپی شد: ${fullUrl}');" class="px-2.5 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+              کپی
+            </button>
+          </div>
+        `;
+      });
+
+      const serverInput = document.getElementById('wifiServerUrlInput');
+      if (serverInput) {
+        const savedUrl = localStorage.getItem('wifi_sync_server_url') || window.location.origin;
+        serverInput.value = savedUrl;
+      }
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeWifiSyncModal() {
+      const modal = document.getElementById('wifiSyncModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function triggerManualWifiSync() {
+      const report = document.getElementById('wifiSyncStatusReport');
+      const btn = document.getElementById('btnTriggerWifiSync');
+      const input = document.getElementById('wifiServerUrlInput');
+      const targetBase = (input && input.value.trim()) ? input.value.trim().replace(/\/$/, '') : window.location.origin;
+
+      localStorage.setItem('wifi_sync_server_url', targetBase);
+
+      if (btn) btn.disabled = true;
+      if (report) report.innerHTML = '<span class="text-sky-400">در حال اتصال و تبادل کارهای صندوق...</span>';
+
+      try {
+        const res = await fetch(`${targetBase}/api/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: tasks })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tasks) {
+            tasks = data.tasks;
+            saveState();
+            updateFolderBadges();
+            renderFeed();
+            lucide.createIcons();
+          }
+          if (report) {
+            report.innerHTML = `<span class="text-emerald-400 font-semibold">✅ همگام‌سازی موفق! ${toPersianDigits(data.synced_count || 0)} تسک تبادل شد. صندوق کامپیوتر و گوشی کاملاً یکسان هستند.</span>`;
+          }
+        } else {
+          throw new Error(`خطای سرور: ${res.status}`);
+        }
+      } catch (err) {
+        if (report) {
+          report.innerHTML = `<span class="text-rose-400">❌ عدم دسترسی به سرور (${err.message}). مطمئن شوید هر دو دستگاه به یک Wi-Fi وصل هستند.</span>`;
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     function openGuideModal() {

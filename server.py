@@ -9,15 +9,17 @@ import base64
 import ssl
 import imaplib
 import email
+import email.utils
 from email.header import decode_header
 import webbrowser
 import socket
+import threading
+import time
 from datetime import datetime, timezone
 
 # ==========================================
 # Environment & Configuration
 # ==========================================
-# Environments: 'production' (main client) or 'test' (staging/testing)
 ENV = os.environ.get('SOVAPP_ENV', 'production').strip().lower()
 if ENV not in ('production', 'test'):
     ENV = 'production'
@@ -34,6 +36,28 @@ OLD_JSON_FILE = os.path.join(DATA_DIR, 'database.json')
 DEFAULT_NTFY_TOPIC = 'ghazal-to-do-test' if ENV == 'test' else 'ghazal-to-do'
 
 os.makedirs(DATA_DIR, exist_ok=True)
+
+
+def parse_datetime(dt_str):
+    """Safely parse ISO string or RFC email date to UTC datetime."""
+    if not dt_str:
+        return None
+    try:
+        clean = dt_str.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(clean)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(dt_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        pass
+    return None
 
 
 def get_network_ips():
@@ -77,7 +101,10 @@ def init_db(db_path=None):
             responded_at TEXT,
             is_deleted INTEGER DEFAULT 0,
             deleted_at TEXT,
-            alert_triggered INTEGER DEFAULT 0
+            alert_triggered INTEGER DEFAULT 0,
+            last_alert_at TEXT,
+            alert_count INTEGER DEFAULT 0,
+            updated_at TEXT
         )
     """)
     c.execute("""
@@ -86,6 +113,17 @@ def init_db(db_path=None):
             value TEXT
         )
     """)
+
+    # Schema migration: Add columns if table already existed without them
+    for col_name, col_type in [
+        ('last_alert_at', 'TEXT'),
+        ('alert_count', 'INTEGER DEFAULT 0'),
+        ('updated_at', 'TEXT')
+    ]:
+        try:
+            c.execute(f"ALTER TABLE tasks ADD COLUMN {col_name} {col_type}")
+        except Exception:
+            pass
 
     # Topic Default
     c.execute('SELECT value FROM settings WHERE key="ntfy_topic"')
@@ -162,6 +200,120 @@ def send_android_notification(title, message, priority='default', tags='bell', t
         return False
 
 
+# ==========================================
+# 48h Overdue & 3-Hour Repeating Alert Worker
+# ==========================================
+def check_and_send_repeating_alerts(db_path=None, force_notification_fn=None):
+    """
+    Checks for unresponded tasks older than 48 hours.
+    Sends initial 48h alert, and repeating alerts every 3 hours until acted upon.
+    """
+    target_db = db_path or DB_FILE
+    now = datetime.now(timezone.utc)
+    alerts_sent = 0
+    notify_fn = force_notification_fn or send_android_notification
+
+    try:
+        conn = sqlite3.connect(target_db)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        c.execute("""
+            SELECT * FROM tasks
+            WHERE is_deleted = 0
+              AND response_status != 'responded'
+              AND task_status != 'done'
+        """)
+        rows = c.fetchall()
+
+        for r in rows:
+            t = dict(r)
+            sent_at_str = t.get('sent_at')
+            if not sent_at_str:
+                continue
+
+            sent_at = parse_datetime(sent_at_str)
+            if not sent_at:
+                continue
+
+            diff_hours = (now - sent_at).total_seconds() / 3600.0
+
+            # Must be over 48 hours
+            if diff_hours >= 48.0:
+                last_alert_str = t.get('last_alert_at')
+                should_alert = False
+                is_repeat = False
+
+                if not last_alert_str:
+                    # Initial 48h alert
+                    should_alert = True
+                    is_repeat = False
+                else:
+                    last_alert_dt = parse_datetime(last_alert_str)
+                    if last_alert_dt:
+                        hours_since_last_alert = (now - last_alert_dt).total_seconds() / 3600.0
+                        # Repeat every 3 hours
+                        if hours_since_last_alert >= 3.0:
+                            should_alert = True
+                            is_repeat = True
+
+                if should_alert:
+                    topic = get_setting('ntfy_topic', DEFAULT_NTFY_TOPIC, db_path=target_db)
+                    hours_rounded = int(diff_hours)
+                    count = (t.get('alert_count') or 0) + 1
+
+                    if not is_repeat:
+                        title = f"🔴 هشدار مهلت ۴۸ ساعته [{t.get('source', 'کار')}]"
+                        msg = f"فرستنده: {t.get('sender', 'نامشخص')}\nموضوع: {t.get('title', '')}\nبیش از ۴۸ ساعت ({hours_rounded} ساعت) گذشته و نیاز به اقدام فوری دارد."
+                        tags = "warning,hourglass"
+                    else:
+                        title = f"⏰ یادآوری مکرر ({hours_rounded} ساعت گذشته) [{t.get('source', 'کار')}]"
+                        msg = f"فرستنده: {t.get('sender', 'نامشخص')}\nموضوع: {t.get('title', '')}\nهنوز پاسخی ثبت نشده است (یادآوری هر ۳ ساعت - نوبت #{count})."
+                        tags = "alarm_clock,hourglass_flowing_sand"
+
+                    success = notify_fn(title, msg, priority="high", tags=tags, topic=topic)
+                    if success:
+                        alerts_sent += 1
+                        c.execute("""
+                            UPDATE tasks
+                            SET alert_triggered = 1,
+                                last_alert_at = ?,
+                                alert_count = COALESCE(alert_count, 0) + 1,
+                                updated_at = ?
+                            WHERE id = ?
+                        """, (now.isoformat(), now.isoformat(), t['id']))
+                        conn.commit()
+
+        conn.close()
+    except Exception as e:
+        print(f"[Alert Worker Error] {e}")
+
+    return alerts_sent
+
+
+ALERT_WORKER_STARTED = False
+
+def start_alert_worker():
+    global ALERT_WORKER_STARTED
+    if ALERT_WORKER_STARTED:
+        return
+    ALERT_WORKER_STARTED = True
+
+    def run_worker():
+        while True:
+            try:
+                check_and_send_repeating_alerts()
+            except Exception:
+                pass
+            time.sleep(60)
+
+    thread = threading.Thread(target=run_worker, daemon=True)
+    thread.start()
+
+
+# ==========================================
+# HTTP Request Handler
+# ==========================================
 class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
     def translate_path(self, path):
         # Security: Prevent directory traversal outside BASE_DIR
@@ -172,7 +324,7 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
         return clean_path
 
     def end_headers(self):
-        # Security & CORS headers
+        # Security & CORS headers (Allow Wi-Fi cross-device communication)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -192,8 +344,97 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
     def do_POST(self):
+        # همگام‌سازی دوطرفه صندوق کارها در شبکه Wi-Fi (Wi-Fi Sync)
+        if self.path == '/api/sync':
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                payload = json.loads(self.rfile.read(length).decode('utf-8'))
+                client_tasks = payload.get('tasks', [])
+                now_str = datetime.now(timezone.utc).isoformat()
+
+                conn = sqlite3.connect(DB_FILE)
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+
+                # Get existing DB tasks mapping
+                c.execute('SELECT * FROM tasks')
+                existing_map = {row['id']: dict(row) for row in c.fetchall()}
+
+                synced_in = 0
+                for ct in client_tasks:
+                    tid = ct.get('id')
+                    if not tid:
+                        continue
+
+                    existing = existing_map.get(tid)
+                    if not existing:
+                        # New task from client (e.g. created on mobile)
+                        c.execute("""
+                            INSERT INTO tasks (id, source, sender, title, body, sent_at, due_date, task_status, response_status, responded_at, is_deleted, deleted_at, alert_triggered, last_alert_at, alert_count, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            tid, ct.get('source', 'Manual'), ct.get('sender', ''), ct.get('title', ''), ct.get('body', ''),
+                            ct.get('sent_at', now_str), ct.get('due_date'), ct.get('task_status', 'pending'),
+                            ct.get('response_status', 'pending_response'), ct.get('responded_at'),
+                            1 if ct.get('is_deleted') else 0, ct.get('deleted_at'),
+                            1 if ct.get('alert_triggered') else 0, ct.get('last_alert_at'),
+                            ct.get('alert_count', 0), now_str
+                        ))
+                        synced_in += 1
+                    else:
+                        # Existing task: update if client has newer status/response
+                        client_responded = (ct.get('response_status') == 'responded' and existing.get('response_status') != 'responded')
+                        client_deleted = (bool(ct.get('is_deleted')) and not bool(existing.get('is_deleted')))
+                        client_done = (ct.get('task_status') == 'done' and existing.get('task_status') != 'done')
+                        due_changed = (ct.get('due_date') != existing.get('due_date') and ct.get('due_date') is not None)
+
+                        if client_responded or client_deleted or client_done or due_changed:
+                            c.execute("""
+                                UPDATE tasks SET
+                                    due_date = COALESCE(?, due_date),
+                                    task_status = ?,
+                                    response_status = ?,
+                                    responded_at = COALESCE(?, responded_at),
+                                    is_deleted = ?,
+                                    deleted_at = COALESCE(?, deleted_at),
+                                    updated_at = ?
+                                WHERE id = ?
+                            """, (
+                                ct.get('due_date'),
+                                ct.get('task_status', existing['task_status']),
+                                ct.get('response_status', existing['response_status']),
+                                ct.get('responded_at'),
+                                1 if (ct.get('is_deleted') or existing['is_deleted']) else 0,
+                                ct.get('deleted_at'),
+                                now_str,
+                                tid
+                            ))
+                            synced_in += 1
+
+                conn.commit()
+
+                # Fetch merged full task list to send back to client
+                c.execute('SELECT * FROM tasks ORDER BY sent_at DESC')
+                merged_tasks = []
+                for r in c.fetchall():
+                    item = dict(r)
+                    item['is_deleted'] = bool(item['is_deleted'])
+                    item['alert_triggered'] = bool(item['alert_triggered'])
+                    merged_tasks.append(item)
+
+                conn.close()
+
+                self.send_json(200, {
+                    'success': True,
+                    'synced_count': synced_in,
+                    'tasks': merged_tasks,
+                    'server_time': now_str
+                })
+            except Exception as e:
+                self.send_json(500, {'error': f'خطا در همگام‌سازی وای‌فای: {str(e)}'})
+
         # تنظیم کانال نوتیفیکیشن موبایل
-        if self.path == '/api/settings/mobile':
+        elif self.path == '/api/settings/mobile':
             try:
                 length = int(self.headers.get('Content-Length', 0))
                 body = json.loads(self.rfile.read(length).decode('utf-8'))
@@ -222,6 +463,14 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_json(500, {'error': 'خطا در ارسال نوتیفیکیشن تست'})
 
+        # بررسی و ارسال فوری هشدارهای ۴۸ ساعته و یادآوری ۳ ساعته
+        elif self.path == '/api/alerts/check_now':
+            try:
+                alerts_count = check_and_send_repeating_alerts()
+                self.send_json(200, {'success': True, 'alerts_sent': alerts_count})
+            except Exception as e:
+                self.send_json(500, {'error': str(e)})
+
         # ذخیره‌سازی تسک‌ها در دیتابیس
         elif self.path == '/api/save':
             try:
@@ -230,25 +479,15 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                 tasks = payload.get('tasks', [])
                 permanently_ignored = payload.get('permanentlyIgnoredIds', [])
                 integrations_data = payload.get('integrations', None)
+                now_str = datetime.now(timezone.utc).isoformat()
 
                 conn = sqlite3.connect(DB_FILE)
                 c = conn.cursor()
 
                 for t in tasks:
-                    if t.get('alert_triggered') and t.get('response_status') != 'responded' and not t.get('is_deleted'):
-                        c.execute('SELECT alert_triggered FROM tasks WHERE id = ?', (t['id'],))
-                        row = c.fetchone()
-                        if not row or not row[0]:
-                            send_android_notification(
-                                f'هشدار مهلت ۴۸ ساعته [{t["source"]}]',
-                                f'فرستنده: {t["sender"]}\nموضوع: {t["title"]}',
-                                priority='high',
-                                tags='warning,hourglass'
-                            )
-
                     c.execute("""
-                        INSERT INTO tasks (id, source, sender, title, body, sent_at, due_date, task_status, response_status, responded_at, is_deleted, deleted_at, alert_triggered)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO tasks (id, source, sender, title, body, sent_at, due_date, task_status, response_status, responded_at, is_deleted, deleted_at, alert_triggered, last_alert_at, alert_count, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(id) DO UPDATE SET
                             due_date=excluded.due_date,
                             task_status=excluded.task_status,
@@ -256,12 +495,14 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                             responded_at=excluded.responded_at,
                             is_deleted=excluded.is_deleted,
                             deleted_at=excluded.deleted_at,
-                            alert_triggered=excluded.alert_triggered
+                            alert_triggered=excluded.alert_triggered,
+                            updated_at=excluded.updated_at
                     """, (
                         t['id'], t['source'], t['sender'], t['title'], t.get('body', ''),
                         t['sent_at'], t.get('due_date'), t['task_status'], t['response_status'],
                         t.get('responded_at'), 1 if t.get('is_deleted') else 0,
-                        t.get('deleted_at'), 1 if t.get('alert_triggered') else 0
+                        t.get('deleted_at'), 1 if t.get('alert_triggered') else 0,
+                        t.get('last_alert_at'), t.get('alert_count', 0), now_str
                     ))
 
                 c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
@@ -273,6 +514,10 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
 
                 conn.commit()
                 conn.close()
+
+                # Trigger overdue check after saving
+                check_and_send_repeating_alerts()
+
                 self.send_json(200, {'status': 'saved_to_sqlite', 'env': ENV, 'db': DB_FILENAME})
             except Exception as e:
                 self.send_json(500, {'error': f'خطا در ذخیره‌سازی: {str(e)}'})
@@ -377,14 +622,47 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404)
 
     def do_GET(self):
-        # اطلاعات وضعیت محیط
+        # اطلاعات وضعیت محیط و آدرس‌های شبکه
         if self.path == '/api/env':
             self.send_json(200, {
                 'env': ENV,
                 'db': DB_FILENAME,
                 'port': PORT,
+                'network_ips': get_network_ips(),
                 'status': 'online'
             })
+            return
+
+        # وضعیت هشدارهای ۴۸ ساعته و یادآوری ۳ ساعته
+        elif self.path == '/api/alerts/status':
+            try:
+                conn = sqlite3.connect(DB_FILE)
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+                now = datetime.now(timezone.utc)
+                c.execute("""
+                    SELECT id, title, sender, source, sent_at, last_alert_at, alert_count
+                    FROM tasks
+                    WHERE is_deleted = 0
+                      AND response_status != 'responded'
+                      AND task_status != 'done'
+                """)
+                active_overdue = []
+                for r in c.fetchall():
+                    item = dict(r)
+                    dt = parse_datetime(item.get('sent_at'))
+                    if dt:
+                        hours = (now - dt).total_seconds() / 3600.0
+                        if hours >= 48:
+                            item['hours_overdue'] = round(hours, 1)
+                            active_overdue.append(item)
+                conn.close()
+                self.send_json(200, {
+                    'active_overdue_count': len(active_overdue),
+                    'tasks': active_overdue
+                })
+            except Exception as e:
+                self.send_json(500, {'error': str(e)})
             return
 
         # بررسی سلامت سرویس (Health Check)
@@ -434,7 +712,8 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                     'ntfy_topic': saved_topic,
                     'env': ENV,
                     'db': DB_FILENAME,
-                    'port': PORT
+                    'port': PORT,
+                    'network_ips': get_network_ips()
                 })
             except Exception as e:
                 self.send_json(500, {'error': f'خطا در بارگذاری اطلاعات: {str(e)}'})
@@ -459,6 +738,9 @@ def run_server():
         hint = ' (وای‌فای اصلی)' if ip.startswith('192.168.') or ip.startswith('10.') else ''
         print(f'    -> http://{ip}:{PORT}/tasks.html{hint}')
     print('=' * 65)
+
+    # Start background alert monitor
+    start_alert_worker()
 
     if os.environ.get('SOVAPP_NO_BROWSER', '0') != '1':
         webbrowser.open(f'http://localhost:{PORT}/tasks.html')
