@@ -1,0 +1,6 @@
+cmd commands:
+1-cd Desktop
+2-python -m http.server 8000
+
+روی مرور گر تایپ کنید:
+3-http://localhost:8000/tasks.html
