@@ -1,4 +1,42 @@
+﻿# ==========================================
+# Security & Sensitive Files
+# ==========================================
 data/
 *.db
-*.json
+*.sqlite
+*.sqlite3
+.env
+.env.*
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# ==========================================
+# Python artifacts
+# ==========================================
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# OS & Editor files
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ==========================================
+# Logs & Temp
+# ==========================================
+*.log
+scratch/
+tmp/

@@ -1,4 +1,4 @@
-import http.server
+﻿import http.server
 import json
 import os
 import sqlite3
@@ -12,17 +12,29 @@ import email
 from email.header import decode_header
 import webbrowser
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 
-PORT = 8000
+# ==========================================
+# Environment & Configuration
+# ==========================================
+# Environments: 'production' (main client) or 'test' (staging/testing)
+ENV = os.environ.get('SOVAPP_ENV', 'production').strip().lower()
+if ENV not in ('production', 'test'):
+    ENV = 'production'
+
+DEFAULT_PORT = 8080 if ENV == 'test' else 8000
+PORT = int(os.environ.get('PORT', DEFAULT_PORT))
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
-DB_FILE = os.path.join(DATA_DIR, 'tasks.db')
+DB_FILENAME = 'tasks_test.db' if ENV == 'test' else 'tasks.db'
+DB_FILE = os.path.join(DATA_DIR, DB_FILENAME)
 OLD_JSON_FILE = os.path.join(DATA_DIR, 'database.json')
 
-DEFAULT_NTFY_TOPIC = "ghazal-to-do"
+DEFAULT_NTFY_TOPIC = 'ghazal-to-do-test' if ENV == 'test' else 'ghazal-to-do'
 
 os.makedirs(DATA_DIR, exist_ok=True)
+
 
 def get_network_ips():
     ips = []
@@ -37,19 +49,21 @@ def get_network_ips():
         pass
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
+        s.connect(('8.8.8.8', 80))
         primary = s.getsockname()[0]
         s.close()
         if primary not in ips and not primary.startswith('127.'):
             ips.insert(0, primary)
     except Exception:
         pass
-    return ips if ips else ["127.0.0.1"]
+    return ips if ips else ['127.0.0.1']
 
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
+
+def init_db(db_path=None):
+    target_db = db_path or DB_FILE
+    conn = sqlite3.connect(target_db)
     c = conn.cursor()
-    c.execute('''
+    c.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
             source TEXT,
@@ -65,47 +79,49 @@ def init_db():
             deleted_at TEXT,
             alert_triggered INTEGER DEFAULT 0
         )
-    ''')
-    c.execute('''
+    """)
+    c.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT
         )
-    ''')
+    """)
 
-    # کانال پیش‌فرض
+    # Topic Default
     c.execute('SELECT value FROM settings WHERE key="ntfy_topic"')
     if not c.fetchone():
         c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("ntfy_topic", ?)', (DEFAULT_NTFY_TOPIC,))
 
-    # بازیابی تسک‌های قبلی در صورت خالی بودن دیتابیس
+    # Migration for old JSON if production and db is empty
     c.execute('SELECT COUNT(*) FROM tasks')
-    if c.fetchone()[0] == 0 and os.path.exists(OLD_JSON_FILE):
+    if c.fetchone()[0] == 0 and os.path.exists(OLD_JSON_FILE) and ENV == 'production':
         try:
             with open(OLD_JSON_FILE, 'r', encoding='utf-8') as f:
                 old_data = json.load(f)
                 for t in old_data.get('tasks', []):
-                    c.execute('''
+                    c.execute("""
                         INSERT OR IGNORE INTO tasks (id, source, sender, title, body, sent_at, due_date, task_status, response_status, responded_at, is_deleted, deleted_at, alert_triggered)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
+                    """, (
                         t['id'], t['source'], t['sender'], t['title'], t.get('body', ''),
                         t['sent_at'], t.get('due_date'), t['task_status'], t['response_status'],
                         t.get('responded_at'), 1 if t.get('is_deleted') else 0,
                         t.get('deleted_at'), 1 if t.get('alert_triggered') else 0
                     ))
-            print("[sovapp] تسک‌های قبلی به دیتابیس SQLite منتقل شدند.")
+            print('[sovapp] داده‌های قبلی به دیتابیس SQLite منتقل شدند.')
         except Exception as e:
-            print(f"[Migration Notice] {e}")
+            print(f'[Migration Notice] {e}')
 
     conn.commit()
     conn.close()
 
+
 init_db()
 
-def get_setting(key, default=""):
+
+def get_setting(key, default='', db_path=None):
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(db_path or DB_FILE)
         c = conn.cursor()
         c.execute('SELECT value FROM settings WHERE key = ?', (key,))
         row = c.fetchone()
@@ -114,9 +130,10 @@ def get_setting(key, default=""):
     except Exception:
         return default
 
-def set_setting(key, value):
+
+def set_setting(key, value, db_path=None):
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(db_path or DB_FILE)
         c = conn.cursor()
         c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
         conn.commit()
@@ -125,29 +142,43 @@ def set_setting(key, value):
     except Exception:
         return False
 
-def send_android_notification(title, message, priority="default", tags="bell", topic=None):
-    active_topic = topic or get_setting("ntfy_topic", DEFAULT_NTFY_TOPIC)
+
+def send_android_notification(title, message, priority='default', tags='bell', topic=None):
+    active_topic = topic or get_setting('ntfy_topic', DEFAULT_NTFY_TOPIC)
     if not active_topic:
         return False
     try:
-        url = f"https://ntfy.sh/{active_topic}"
+        url = f'https://ntfy.sh/{active_topic}'
         headers = {
-            "Title": title.encode('utf-8'),
-            "Priority": priority,
-            "Tags": tags
+            'Title': title.encode('utf-8'),
+            'Priority': priority,
+            'Tags': tags
         }
         req = urllib.request.Request(url, data=message.encode('utf-8'), headers=headers, method='POST')
         with urllib.request.urlopen(req, timeout=8) as resp:
             return resp.status == 200
     except Exception as e:
-        print(f"[Mobile Notify Error] {e}")
+        print(f'[Mobile Notify Error] {e}')
         return False
 
+
 class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
+    def translate_path(self, path):
+        # Security: Prevent directory traversal outside BASE_DIR
+        clean_path = super().translate_path(path)
+        rel = os.path.relpath(clean_path, BASE_DIR)
+        if rel.startswith('..') or os.path.isabs(rel):
+            return os.path.join(BASE_DIR, '__invalid_path__')
+        return clean_path
+
     def end_headers(self):
+        # Security & CORS headers
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'SAMEORIGIN')
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -161,37 +192,37 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
     def do_POST(self):
-        # تغییر شناسه کانال موبایل از طریق مودال
+        # تنظیم کانال نوتیفیکیشن موبایل
         if self.path == '/api/settings/mobile':
             try:
                 length = int(self.headers.get('Content-Length', 0))
                 body = json.loads(self.rfile.read(length).decode('utf-8'))
                 topic = body.get('topic', '').strip()
                 if topic:
-                    set_setting("ntfy_topic", topic)
-                self.send_json(200, {"success": True, "topic": topic or get_setting("ntfy_topic", DEFAULT_NTFY_TOPIC)})
+                    set_setting('ntfy_topic', topic)
+                self.send_json(200, {'success': True, 'topic': topic or get_setting('ntfy_topic', DEFAULT_NTFY_TOPIC)})
             except Exception as e:
-                self.send_json(500, {"error": str(e)})
+                self.send_json(500, {'error': 'خطا در ثبت تنظیمات نوتیفیکیشن'})
 
-        # ارسال تست نوتیفیکیشن
+        # تست نوتیفیکیشن
         elif self.path == '/api/mobile/test':
             try:
                 length = int(self.headers.get('Content-Length', 0))
                 body = json.loads(self.rfile.read(length).decode('utf-8')) if length > 0 else {}
-                topic = body.get('topic', '').strip() or get_setting("ntfy_topic", DEFAULT_NTFY_TOPIC)
+                topic = body.get('topic', '').strip() or get_setting('ntfy_topic', DEFAULT_NTFY_TOPIC)
 
                 success = send_android_notification(
-                    "تست اتصال sovapp",
-                    f"ارتباط موفق با کانال [{topic}] برقرار است.",
-                    priority="high",
-                    tags="tada,iphone",
+                    'تست ارسال sovapp',
+                    f'ارتباط موفق با کانال [{topic}] برقرار است. (محیط: {ENV})',
+                    priority='high',
+                    tags='tada,iphone',
                     topic=topic
                 )
-                self.send_json(200, {"success": success, "topic": topic})
+                self.send_json(200, {'success': success, 'topic': topic, 'env': ENV})
             except Exception as e:
-                self.send_json(500, {"error": str(e)})
+                self.send_json(500, {'error': 'خطا در ارسال نوتیفیکیشن تست'})
 
-        # ذخیره تسک‌ها در SQLite
+        # ذخیره‌سازی تسک‌ها در دیتابیس
         elif self.path == '/api/save':
             try:
                 length = int(self.headers.get('Content-Length', 0))
@@ -209,13 +240,13 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                         row = c.fetchone()
                         if not row or not row[0]:
                             send_android_notification(
-                                f"هشدار معوق ۲۴ ساعته [{t['source']}]",
-                                f"فرستنده: {t['sender']}\nموضوع: {t['title']}",
-                                priority="high",
-                                tags="warning,hourglass"
+                                f'هشدار مهلت ۴۸ ساعته [{t["source"]}]',
+                                f'فرستنده: {t["sender"]}\nموضوع: {t["title"]}',
+                                priority='high',
+                                tags='warning,hourglass'
                             )
 
-                    c.execute('''
+                    c.execute("""
                         INSERT INTO tasks (id, source, sender, title, body, sent_at, due_date, task_status, response_status, responded_at, is_deleted, deleted_at, alert_triggered)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(id) DO UPDATE SET
@@ -226,7 +257,7 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                             is_deleted=excluded.is_deleted,
                             deleted_at=excluded.deleted_at,
                             alert_triggered=excluded.alert_triggered
-                    ''', (
+                    """, (
                         t['id'], t['source'], t['sender'], t['title'], t.get('body', ''),
                         t['sent_at'], t.get('due_date'), t['task_status'], t['response_status'],
                         t.get('responded_at'), 1 if t.get('is_deleted') else 0,
@@ -242,9 +273,9 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
 
                 conn.commit()
                 conn.close()
-                self.send_json(200, {"status": "saved_to_sqlite"})
+                self.send_json(200, {'status': 'saved_to_sqlite', 'env': ENV, 'db': DB_FILENAME})
             except Exception as e:
-                self.send_json(500, {"error": str(e)})
+                self.send_json(500, {'error': f'خطا در ذخیره‌سازی: {str(e)}'})
 
         # پروکسی جیرا
         elif self.path == '/api/jira/sync':
@@ -258,19 +289,19 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                 if domain.startswith('http://') or domain.startswith('https://'):
                     base_url = domain.rstrip('/')
                 else:
-                    base_url = f"https://{domain}.atlassian.net"
+                    base_url = f'https://{domain}.atlassian.net'
 
-                jql = "assignee = currentUser() AND resolution = Unresolved order by updated DESC"
-                api_url = f"{base_url}/rest/api/2/search?jql={urllib.parse.quote(jql)}&maxResults=25"
+                jql = 'assignee = currentUser() AND resolution = Unresolved order by updated DESC'
+                api_url = f'{base_url}/rest/api/2/search?jql={urllib.parse.quote(jql)}&maxResults=25'
 
                 req = urllib.request.Request(api_url)
                 req.add_header('Accept', 'application/json')
 
                 if email_addr:
-                    auth_pair = f"{email_addr}:{token}".encode('utf-8')
-                    req.add_header('Authorization', f"Basic {base64.b64encode(auth_pair).decode('utf-8')}")
+                    auth_pair = f'{email_addr}:{token}'.encode('utf-8')
+                    req.add_header('Authorization', f'Basic {base64.b64encode(auth_pair).decode("utf-8")}')
                 else:
-                    req.add_header('Authorization', f"Bearer {token}")
+                    req.add_header('Authorization', f'Bearer {token}')
 
                 ctx = ssl.create_default_context()
                 ctx.check_hostname = False
@@ -281,11 +312,11 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_json(200, res_data)
 
             except urllib.error.HTTPError as he:
-                self.send_json(he.code, {"error": f"خطای جیرا: {he.code}"})
+                self.send_json(he.code, {'error': f'خطای سرویس جیرا: {he.code}'})
             except urllib.error.URLError:
-                self.send_json(504, {"error": "عدم دسترسی به سرور جیرا"})
+                self.send_json(504, {'error': 'عدم دسترسی به سرور جیرا'})
             except Exception as e:
-                self.send_json(500, {"error": str(e)})
+                self.send_json(500, {'error': f'خطا در ارتباط با جیرا: {str(e)}'})
 
         # اتصال مستقیم IMAP
         elif self.path == '/api/mail/imap_sync':
@@ -326,78 +357,118 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                                 sender_text = sender_text.decode(sender_header[1] or 'utf-8', errors='ignore')
 
                             date_text = msg.get('Date', '')
-                            clean_id = f"imap-{host}-{m_id.decode('utf-8')}"
+                            clean_id = f'imap-{host}-{m_id.decode("utf-8")}'
 
                             fetched_items.append({
-                                "id": clean_id,
-                                "source": source_label,
-                                "sender": sender_text or "نامشخص",
-                                "title": sub_text or "(بدون عنوان)",
-                                "body": f"دریافت شده از سرور اختصاصی {host}",
-                                "sent_at": date_text
+                                'id': clean_id,
+                                'source': source_label,
+                                'sender': sender_text or 'نامشخص',
+                                'title': sub_text or '(بدون عنوان)',
+                                'body': f'دریافت شده از سرور اختصاصی {host}',
+                                'sent_at': date_text
                             })
 
                 mail.close()
                 mail.logout()
-                self.send_json(200, {"messages": fetched_items})
+                self.send_json(200, {'messages': fetched_items})
             except Exception as e:
-                self.send_json(500, {"error": f"خطا در IMAP: {str(e)}"})
+                self.send_json(500, {'error': f'خطا در IMAP: {str(e)}'})
         else:
             self.send_error(404)
 
     def do_GET(self):
-        # بارگذاری دیتابیس در لود صفحه
-        if self.path == '/api/load':
-            conn = sqlite3.connect(DB_FILE)
-            conn.row_factory = sqlite3.Row
-            c = conn.cursor()
-
-            c.execute('SELECT * FROM tasks ORDER BY sent_at DESC')
-            rows = c.fetchall()
-            tasks = []
-            for r in rows:
-                t = dict(r)
-                t['is_deleted'] = bool(t['is_deleted'])
-                t['alert_triggered'] = bool(t['alert_triggered'])
-                tasks.append(t)
-
-            c.execute('SELECT value FROM settings WHERE key="permanently_ignored"')
-            ignored_row = c.fetchone()
-            permanently_ignored = json.loads(ignored_row['value']) if ignored_row else []
-
-            c.execute('SELECT value FROM settings WHERE key="integrations"')
-            ints_row = c.fetchone()
-            saved_integrations = json.loads(ints_row['value']) if ints_row else None
-
-            c.execute('SELECT value FROM settings WHERE key="ntfy_topic"')
-            ntfy_row = c.fetchone()
-            saved_topic = ntfy_row[0] if ntfy_row else DEFAULT_NTFY_TOPIC
-
-            conn.close()
-
+        # اطلاعات وضعیت محیط
+        if self.path == '/api/env':
             self.send_json(200, {
-                "tasks": tasks,
-                "permanentlyIgnoredIds": permanently_ignored,
-                "integrations": saved_integrations,
-                "ntfy_topic": saved_topic
+                'env': ENV,
+                'db': DB_FILENAME,
+                'port': PORT,
+                'status': 'online'
             })
-        else:
-            super().do_GET()
+            return
 
-if __name__ == '__main__':
+        # بررسی سلامت سرویس (Health Check)
+        elif self.path == '/api/health':
+            self.send_json(200, {
+                'status': 'healthy',
+                'env': ENV,
+                'db': DB_FILENAME,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            })
+            return
+
+        # بارگذاری دیتابیس در لود صفحه
+        elif self.path == '/api/load':
+            try:
+                conn = sqlite3.connect(DB_FILE)
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+
+                c.execute('SELECT * FROM tasks ORDER BY sent_at DESC')
+                rows = c.fetchall()
+                tasks = []
+                for r in rows:
+                    t = dict(r)
+                    t['is_deleted'] = bool(t['is_deleted'])
+                    t['alert_triggered'] = bool(t['alert_triggered'])
+                    tasks.append(t)
+
+                c.execute('SELECT value FROM settings WHERE key="permanently_ignored"')
+                ignored_row = c.fetchone()
+                permanently_ignored = json.loads(ignored_row['value']) if ignored_row else []
+
+                c.execute('SELECT value FROM settings WHERE key="integrations"')
+                ints_row = c.fetchone()
+                saved_integrations = json.loads(ints_row['value']) if ints_row else None
+
+                c.execute('SELECT value FROM settings WHERE key="ntfy_topic"')
+                ntfy_row = c.fetchone()
+                saved_topic = ntfy_row[0] if ntfy_row else DEFAULT_NTFY_TOPIC
+
+                conn.close()
+
+                self.send_json(200, {
+                    'tasks': tasks,
+                    'permanentlyIgnoredIds': permanently_ignored,
+                    'integrations': saved_integrations,
+                    'ntfy_topic': saved_topic,
+                    'env': ENV,
+                    'db': DB_FILENAME,
+                    'port': PORT
+                })
+            except Exception as e:
+                self.send_json(500, {'error': f'خطا در بارگذاری اطلاعات: {str(e)}'})
+            return
+
+        # هدایت مسیر ریشه به tasks.html
+        elif self.path in ('/', '/index', '/index.html'):
+            self.path = '/tasks.html'
+
+        super().do_GET()
+
+
+def run_server():
     all_ips = get_network_ips()
-    print("=" * 65)
-    print("  سرور میز پیگیری تسک‌ها (sovapp) در حال اجراست")
-    print(f"  آدرس در این سیستم: http://localhost:{PORT}/tasks.html")
-    print("  آدرس برای گوشی (در همان Wi-Fi، با علامت دو نقطه :8000):")
+    env_label = 'محیط تست (Test / Development)' if ENV == 'test' else 'محیط اصلی و پایدار (Production / Main)'
+    print('=' * 65)
+    print(f'  سرور میز مدیریت تسک‌ها (sovapp) - {env_label}')
+    print(f'  دیتابیس فعال: data/{DB_FILENAME}')
+    print(f'  آدرس لوکال: http://localhost:{PORT}/tasks.html')
+    print(f'  آدرس برای دسترسی در شبکه وای‌فای (پورت {PORT}):')
     for ip in all_ips:
-        hint = " (وای‌فای اصلی)" if ip.startswith("192.168.") or ip.startswith("10.") else ""
-        print(f"    -> http://{ip}:{PORT}/tasks.html{hint}")
-    print("=" * 65)
-    
-    webbrowser.open(f"http://localhost:{PORT}/tasks.html")
+        hint = ' (وای‌فای اصلی)' if ip.startswith('192.168.') or ip.startswith('10.') else ''
+        print(f'    -> http://{ip}:{PORT}/tasks.html{hint}')
+    print('=' * 65)
+
+    if os.environ.get('SOVAPP_NO_BROWSER', '0') != '1':
+        webbrowser.open(f'http://localhost:{PORT}/tasks.html')
+
     server = http.server.HTTPServer(('0.0.0.0', PORT), TaskHubHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == '__main__':
+    run_server()

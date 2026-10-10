@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="data:,">
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0284c7" />
   <title>میز پیگیری تسک‌ها (sovapp)</title>
   
   <!-- فونت وزیرمتن -->
@@ -88,6 +90,7 @@
             <i data-lucide="bell" class="w-5 h-5"></i>
           </div>
           <span class="hidden text-lg font-bold lg:block text-slate-100">میز پیگیری تسک‌ها (sovapp)</span>
+          <span id="envBadge" class="hidden px-2.5 py-0.5 text-xs rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 font-medium"></span>
         </div>
 
         <!-- Navigation Tabs -->
@@ -589,6 +592,16 @@
 
           const badge = document.getElementById('diskSyncText');
           if (badge) badge.innerText = "SQLite: متصل";
+
+          const envBadge = document.getElementById('envBadge');
+          if (envBadge) {
+            if (data.env === 'test') {
+              envBadge.classList.remove('hidden');
+              envBadge.innerText = 'محیط تست (' + (data.db || 'tasks_test.db') + ')';
+            } else {
+              envBadge.classList.add('hidden');
+            }
+          }
         }
       } catch (err) {
         console.warn("خطا در بارگذاری اولیه:", err);
@@ -1374,6 +1387,12 @@
     initHourMinuteDropdowns();
     loadDataFromSQLite();
     updateCountdownDisplay();
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>

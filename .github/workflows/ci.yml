@@ -1,0 +1,139 @@
+﻿name: sovapp CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # -------------------------------------------------------------
+  # Job 1: Linting & Syntax Validation
+  # -------------------------------------------------------------
+  lint-and-validate:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Python Syntax
+        run: |
+          python -m py_compile server.py
+          python -m py_compile tests/test_server.py
+
+      - name: Validate JSON Files
+        run: |
+          python -c "import json; json.load(open('manifest.json', encoding='utf-8')); print('manifest.json is valid!')"
+
+  # -------------------------------------------------------------
+  # Job 2: Security & Hygiene Audit
+  # -------------------------------------------------------------
+  security-audit:
+    name: Security & Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Check for Leaked Databases or Secrets
+        run: |
+          # Verify no sensitive extensions are tracked
+          TRACKED=$(git ls-files)
+          echo "$TRACKED" | while read -r file; do
+            if [[ "$file" =~ \.(db|sqlite|sqlite3|pem|key|env)$ ]]; then
+              echo "SECURITY ERROR: Sensitive file tracked in git: $file"
+              exit 1
+            fi
+            if [[ "$file" =~ ^(secrets|\.env|credentials) ]]; then
+              echo "SECURITY ERROR: Secret file pattern tracked in git: $file"
+              exit 1
+            fi
+          done
+          echo "Security audit passed: No database or secret files tracked."
+
+  # -------------------------------------------------------------
+  # Job 3: Automated Tests (Dual Environment)
+  # -------------------------------------------------------------
+  automated-tests:
+    name: Automated Unit & Integration Tests
+    needs: [lint-and-validate, security-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Tests in Test Environment (SOVAPP_ENV=test)
+        env:
+          SOVAPP_ENV: test
+        run: |
+          python -m unittest discover -s tests -v
+
+      - name: Run Tests in Production Environment (SOVAPP_ENV=production)
+        env:
+          SOVAPP_ENV: production
+        run: |
+          python -m unittest discover -s tests -v
+
+  # -------------------------------------------------------------
+  # Job 4: Staging Delivery (develop branch)
+  # -------------------------------------------------------------
+  staging-delivery:
+    name: Staging / Test Build
+    needs: [automated-tests]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Archive Test / Staging Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sovapp-staging-package
+          path: |
+            server.py
+            tasks.html
+            index.html
+            manifest.json
+            service-worker.js
+            run_test.bat
+            run.bat
+
+  # -------------------------------------------------------------
+  # Job 5: Production Release (main branch)
+  # -------------------------------------------------------------
+  production-delivery:
+    name: Production Release Build
+    needs: [automated-tests]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Package Production Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: sovapp-production-package
+          path: |
+            server.py
+            tasks.html
+            index.html
+            manifest.json
+            service-worker.js
+            run_prod.bat
+            run.bat
