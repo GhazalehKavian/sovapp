@@ -386,6 +386,181 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: راهنمای سیستم و اتصالات ================= -->
+  <div id="guideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 hidden backdrop-blur-sm transition-opacity">
+    <div class="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0f172a] shadow-2xl border border-slate-800 overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0b0f19]">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <i data-lucide="book-open" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-100">راهنمای اتصال به سرویس‌ها و کاربری</h3>
+            <p class="text-xs text-slate-400">راهنمای گام‌به‌گام اتصال جیمیل، اوت‌لوک، جیرا و نوتیفیکیشن موبایل</p>
+          </div>
+        </div>
+        <button onclick="closeGuideModal()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-slate-800 bg-slate-900/60 px-4 pt-2 gap-1 overflow-x-auto text-xs font-semibold">
+        <button id="guideTabBtnJira" onclick="switchGuideTab('jira')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-sky-500 text-sky-400 bg-slate-800/60 transition whitespace-nowrap">
+          <i data-lucide="check-square" class="w-3.5 h-3.5 text-blue-400"></i>
+          <span>جیرا (Jira)</span>
+        </button>
+        <button id="guideTabBtnGmail" onclick="switchGuideTab('gmail')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="mail" class="w-3.5 h-3.5 text-red-400"></i>
+          <span>جیمیل (Gmail)</span>
+        </button>
+        <button id="guideTabBtnOutlook" onclick="switchGuideTab('outlook')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="inbox" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>اوت‌لوک (Outlook)</span>
+        </button>
+        <button id="guideTabBtnMobile" onclick="switchGuideTab('mobile')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5 text-fuchsia-400"></i>
+          <span>نوتیفیکیشن موبایل</span>
+        </button>
+        <button id="guideTabBtnEnv" onclick="switchGuideTab('env')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>محیط‌های کاری</span>
+        </button>
+      </div>
+
+      <!-- Tab Contents (Scrollable) -->
+      <div class="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm leading-relaxed scrollbar-visible flex-1">
+        
+        <!-- JIRA TAB -->
+        <div id="guideContentJira" class="space-y-3.5">
+          <div class="flex items-center gap-2 text-sky-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+            <span>راهنمای اتصال به جیرا (Atlassian Jira)</span>
+          </div>
+          <p class="text-slate-300">با اتصال جیرا، کلیه وظایف باز و معوقی که در جیرا به شما تخصیص داده شده به‌طور خودکار در داشبورد ثبت می‌شوند.</p>
+          <div class="rounded-xl bg-slate-900/80 p-4 border border-slate-800 space-y-2.5">
+            <div class="font-semibold text-slate-200">مراحل دریافت اطلاعات:</div>
+            <ol class="list-decimal list-inside space-y-2 text-slate-300 pr-1">
+              <li><strong class="text-white">دامنه جیرا:</strong> اگر از جیرای ابری استفاده می‌کنید، فقط نام شرکت (مثلاً <code class="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300" dir="ltr">mycompany</code>) را بنویسید. اگر از جیرای محلی سازمانی استفاده می‌کنید، آدرس کامل (مثلاً <code class="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300" dir="ltr">https://jira.company.ir</code>) را وارد نمایید.</li>
+              <li><strong class="text-white">ایمیل سازمانی:</strong> آدرس ایمیلی که با آن در جیرا لاگین می‌کنید.</li>
+              <li><strong class="text-white">توکن اختصاصی (API Token):</strong> وارد آدرس <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" class="text-sky-400 underline" dir="ltr">id.atlassian.com/manage-profile/security/api-tokens</a> شوید، دکمه <em>Create API token</em> را بزنید و توکن تولید شده را در کادر مربوطه قرار دهید.</li>
+            </ol>
+          </div>
+          <div class="p-3 rounded-lg bg-blue-950/30 border border-blue-900/50 text-blue-300 text-xs flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+            <span>ارتباط با جیرا از طریق پروکسی امن سرور پایتون محلی صورت می‌پذیرد تا هیچ مشکلی با مسدودسازی CORS نداشته باشید.</span>
+          </div>
+        </div>
+
+        <!-- GMAIL TAB -->
+        <div id="guideContentGmail" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-rose-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span>راهنمای اتصال به جیمیل (Google Gmail API)</span>
+          </div>
+          <p class="text-slate-300">اتصال رسمی به جیمیل با پروتکل استاندارد امن Google OAuth 2.0 انجام می‌شود.</p>
+          <div class="rounded-xl bg-slate-900/80 p-4 border border-slate-800 space-y-2.5">
+            <div class="font-semibold text-slate-200">مراحل ساخت Client ID در گوگل:</div>
+            <ol class="list-decimal list-inside space-y-2 text-slate-300 pr-1">
+              <li>به کنسول توسعه‌دهندگان گوگل در <a href="https://console.cloud.google.com" target="_blank" class="text-sky-400 underline" dir="ltr">console.cloud.google.com</a> بروید.</li>
+              <li>از منوی کناری به مسیر <strong>APIs & Services > Credentials</strong> بروید.</li>
+              <li>گزینه <strong>Create Credentials > OAuth client ID</strong> را انتخاب کرده و نوع را روی <strong>Web application</strong> قرار دهید.</li>
+              <li>در قسمت <strong>Authorized JavaScript origins</strong>، هر دو آدرس زیر را اضافه کنید:
+                <div class="mt-1 space-y-1 font-mono text-xs text-emerald-400" dir="ltr">
+                  <div class="bg-slate-950 p-1.5 rounded">http://localhost:8000</div>
+                  <div class="bg-slate-950 p-1.5 rounded">http://localhost:8080</div>
+                </div>
+              </li>
+              <li>شناسه تولیدشده (که به <code class="text-rose-300 font-mono" dir="ltr">.apps.googleusercontent.com</code> ختم می‌شود) را کپی و در کادر اتصال وارد کنید.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- OUTLOOK TAB -->
+        <div id="guideContentOutlook" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-sky-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="inbox" class="w-4 h-4"></i>
+            <span>راهنمای اتصال به اوت‌لوک و ایمیل سازمانی</span>
+          </div>
+          <p class="text-slate-300">برای اتصال ایمیل‌های اوت‌لوک دو روش سریع در اختیار دارید:</p>
+          <div class="space-y-3">
+            <div class="rounded-xl bg-slate-900/80 p-3.5 border border-slate-800">
+              <span class="font-bold text-sky-300">روش اول: ورود مستقیم با حساب مایکروسافت (MSAL)</span>
+              <p class="text-slate-300 mt-1">با ثبت یک برنامه در <a href="https://portal.azure.com" target="_blank" class="text-sky-400 underline">Azure Portal</a> در قسمت App Registrations و قرار دادن شناسه برنامه (Application ID) می‌توانید بدون رمزعبور و با یک کلیک متصل شوید.</p>
+            </div>
+            <div class="rounded-xl bg-slate-900/80 p-3.5 border border-slate-800">
+              <span class="font-bold text-emerald-300">روش دوم: اتصال IMAP سرور اختصاصی</span>
+              <p class="text-slate-300 mt-1">اگر سرور ایمیل اختصاصی سازمانی (مثل Exchange یا سرویس‌های پستی داخلی) دارید، سرور محلی پایتون از طریق پروتکل رمزنگاری‌شده IMAP با پورت ۹۹۳ پیام‌های دریافتی جدید را استخراج می‌کند.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOBILE TAB -->
+        <div id="guideContentMobile" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-fuchsia-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="smartphone" class="w-4 h-4"></i>
+            <span>راهنمای دریافت نوتیفیکیشن روی گوشی (Android / iOS)</span>
+          </div>
+          <p class="text-slate-300">این قابلیت به شما امکان می‌دهد هشدارهای کارهای مهم و مهلت ۴۸ ساعته را مستقیماً روی گوشی همراه خود دریافت نمایید، کاملاً رایگان و بدون نیاز به ثبت‌نام!</p>
+          <div class="rounded-xl bg-slate-900/80 p-4 border border-slate-800 space-y-2.5">
+            <ol class="list-decimal list-inside space-y-2 text-slate-300 pr-1">
+              <li>برنامه رایگان <strong class="text-white">ntfy</strong> را از گوگل‌پلی یا اپ‌استور روی گوشی خود نصب کنید.</li>
+              <li>برنامه را باز کرده و دکمه <strong>+ (عضویت در تاپیک / Subscribe)</strong> را بزنید.</li>
+              <li>نام تاپیک دلخواه خود را (مثلاً <code class="text-fuchsia-300 font-mono" dir="ltr">ghazal-to-do</code>) وارد کنید.</li>
+              <li>در داشبورد وب، در بخش <em>اتصالات سرویس‌ها > نوتیفیکیشن موبایل</em>، همین نام را وارد کرده و دکمه <strong>«تست ارسال»</strong> را بزنید تا از برقراری ارتباط مطمئن شوید!</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- ENV TAB -->
+        <div id="guideContentEnv" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-amber-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+            <span>راهنمای محیط‌های کاری (تست و اصلی)</span>
+          </div>
+          <p class="text-slate-300">سیستم شما دارای دو محیط ۱۰۰٪ مجزا و ایزوله است تا در حین آزمایش و توسعه، خطایی متوجه داده‌های مشتری نشود:</p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl bg-amber-950/20 border border-amber-900/40 p-3.5">
+              <span class="font-bold text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="flask-conical" class="w-4 h-4"></i> محیط تست (Develop)
+              </span>
+              <ul class="mt-2 space-y-1 text-slate-300 text-xs list-disc list-inside">
+                <li>اجرا با فایل <code class="text-amber-300">run_test.bat</code></li>
+                <li>پورت: <code class="text-amber-300" dir="ltr">8080</code></li>
+                <li>دیتابیس: <code class="text-amber-300" dir="ltr">tasks_test.db</code></li>
+                <li>دارای نشانگر زرد در هدر</li>
+              </ul>
+            </div>
+            <div class="rounded-xl bg-emerald-950/20 border border-emerald-900/40 p-3.5">
+              <span class="font-bold text-emerald-300 flex items-center gap-1.5">
+                <i data-lucide="check-circle" class="w-4 h-4"></i> محیط مشتری (Main)
+              </span>
+              <ul class="mt-2 space-y-1 text-slate-300 text-xs list-disc list-inside">
+                <li>اجرا با فایل <code class="text-emerald-300">run_prod.bat</code></li>
+                <li>پورت: <code class="text-emerald-300" dir="ltr">8000</code></li>
+                <li>دیتابیس: <code class="text-emerald-300" dir="ltr">tasks.db</code></li>
+                <li>نسخه رسمی و تمیز</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-6 py-3.5 border-t border-slate-800 bg-[#0b0f19]">
+        <span class="text-xs text-slate-500">تمامی تنظیمات به صورت امن و محلی ذخیره می‌شوند</span>
+        <button onclick="closeGuideModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">
+          متوجه شدم و بستن
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
   <!-- ================= JAVASCRIPT CORE ================= -->
   <script>
     const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
@@ -1357,12 +1532,40 @@
       closeAddTaskModal();
     }
 
+function switchGuideTab(tab) {
+      const tabs = ['jira', 'gmail', 'outlook', 'mobile', 'env'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('guideTabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        const cnt = document.getElementById('guideContent' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn && cnt) {
+          if (t === tab) {
+            btn.classList.add('border-sky-500', 'text-sky-400', 'bg-slate-800/60');
+            btn.classList.remove('border-transparent', 'text-slate-400');
+            cnt.classList.remove('hidden');
+          } else {
+            btn.classList.remove('border-sky-500', 'text-sky-400', 'bg-slate-800/60');
+            btn.classList.add('border-transparent', 'text-slate-400');
+            cnt.classList.add('hidden');
+          }
+        }
+      });
+      lucide.createIcons();
+    }
+
     function openGuideModal() {
-      document.getElementById('guideModal').classList.remove('hidden');
+      const modal = document.getElementById('guideModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        switchGuideTab('jira');
+        lucide.createIcons();
+      }
     }
 
     function closeGuideModal() {
-      document.getElementById('guideModal').classList.add('hidden');
+      const modal = document.getElementById('guideModal');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
     }
 
     function switchView(view) {
