@@ -40,3 +40,6 @@ Desktop.ini
 *.log
 scratch/
 tmp/
+
+# Distribution archives
+*.zip

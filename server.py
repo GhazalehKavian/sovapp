@@ -16,7 +16,7 @@ import socket
 import subprocess
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # ==========================================
 # Environment & Configuration
@@ -106,6 +106,51 @@ def get_network_ips():
     return ips if ips else ['172.19.10.22']
 
 
+def seed_sample_tasks(cursor):
+    """Seed fresh, realistic demo tasks when starting on a new environment without existing data."""
+    now = datetime.now(timezone.utc)
+    now_str = now.isoformat()
+    t1_time = (now - timedelta(hours=2)).isoformat()
+    t2_time = (now - timedelta(hours=5)).isoformat()
+    t3_time = (now - timedelta(hours=8)).isoformat()
+    t4_time = (now - timedelta(hours=12)).isoformat()
+
+    sample_tasks = [
+        (
+            'demo-task-1', 'Gmail', 'علی رضایی (مدیر حقوقی)',
+            'بررسی و تأیید پیش‌نویس قرارداد همکاری سال جدید',
+            'لطفاً بندهای مربوط به محرمانگی اطلاعات و شرایط فسخ قرارداد را بررسی و نظرات نهایی را اعلام فرمایید.',
+            t1_time, (now + timedelta(days=2)).strftime('%Y-%m-%d'), 'pending', 'pending_response', None, 0, None, 0, None, 0, now_str
+        ),
+        (
+            'demo-task-2', 'Outlook', 'سارا احمدی (مدیر محصول)',
+            'جلسه هماهنگی هفتگی توسعه و بازبینی شاخص‌های کلیدی (KPI)',
+            'ارائه گزارش پیشرفت فاز اول و تعیین اولویت‌های اسپرینت پیش رو برای تیم‌های فنی و طراحی.',
+            t2_time, (now + timedelta(days=1)).strftime('%Y-%m-%d'), 'in_progress', 'pending_response', None, 0, None, 0, None, 0, now_str
+        ),
+        (
+            'demo-task-3', 'Jira', 'تیم مهندسی نرم‌افزار',
+            'SOV-104: بازبینی فرآیند همگام‌سازی و اعلانات تکرارشونده موبایل',
+            'پیاده‌سازی هشدار هوشمند ۴۸ ساعته و بهینه‌سازی دسترسی بدون اینترنت برای کاربران موبایل.',
+            t3_time, (now + timedelta(days=3)).strftime('%Y-%m-%d'), 'pending', 'pending_response', None, 0, None, 0, None, 0, now_str
+        ),
+        (
+            'demo-task-4', 'Manual', 'دفتر مدیریت عامل',
+            'تهیه خلاصه گزارش ماهانه اقدامات صندوق کارهای مشترک',
+            'گزارش تجمیعی از وضعیت وظایف انجام شده و تعیین تکلیف شده جهت ارائه در جلسه هیئت مدیره.',
+            t4_time, now.strftime('%Y-%m-%d'), 'done', 'responded', t4_time, 0, None, 0, None, 0, now_str
+        )
+    ]
+
+    cursor.executemany("""
+        INSERT OR IGNORE INTO tasks (
+            id, source, sender, title, body, sent_at, due_date,
+            task_status, response_status, responded_at, is_deleted,
+            deleted_at, alert_triggered, last_alert_at, alert_count, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, sample_tasks)
+
+
 def init_db(db_path=None):
     target_db = db_path or DB_FILE
     conn = sqlite3.connect(target_db)
@@ -172,6 +217,11 @@ def init_db(db_path=None):
             print('[sovapp] داده‌های قبلی به دیتابیس SQLite منتقل شدند.')
         except Exception as e:
             print(f'[Migration Notice] {e}')
+
+    # Seed sample demo tasks if table is still empty
+    c.execute('SELECT COUNT(*) FROM tasks')
+    if c.fetchone()[0] == 0:
+        seed_sample_tasks(c)
 
     conn.commit()
     conn.close()

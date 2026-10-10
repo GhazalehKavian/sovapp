@@ -37,6 +37,7 @@
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="qrcode.min.js"></script>
   
   <!-- کتابخانه‌های رسمی احراز هویت -->
   <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
@@ -166,6 +167,31 @@
     <!-- Drawer Content (Scrollable) -->
     <div class="flex-1 p-4 overflow-y-auto space-y-3.5 text-xs scrollbar-visible">
       
+            <!-- انتقال داده با فایل (پشتیبان‌گیری / گوشی و کامپیوتر) -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="arrow-left-right" class="w-4 h-4 text-emerald-400"></i>
+            <span>انتقال داده (گوشی / کامپیوتر)</span>
+          </span>
+          <span class="text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-900/60 px-2 py-0.5 rounded-full font-medium">بدون شبکه</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          انتقال سریع و ۱۰۰٪ امن تسک‌ها بین گوشی و کامپیوتر بدون نیاز به اتصال شبکه یا وای‌فای مشترک.
+        </p>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="exportTasksJson()" class="py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-200 font-bold rounded-lg transition flex items-center justify-center gap-1 text-[11px]">
+            <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>دانلود پشتیبان</span>
+          </button>
+          <button onclick="document.getElementById('importFileInput').click()" class="py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-200 font-bold rounded-lg transition flex items-center justify-center gap-1 text-[11px]">
+            <i data-lucide="upload" class="w-3.5 h-3.5 text-sky-400"></i>
+            <span>ورود فایل (Import)</span>
+          </button>
+        </div>
+        <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importTasksJson(event)" />
+      </div>
+
       <!-- ۱. همگام‌سازی Wi-Fi -->
       <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
         <div class="flex items-center justify-between">
@@ -731,7 +757,7 @@
           <!-- QR Code Section -->
           <div class="flex flex-col sm:flex-row items-center gap-4 p-3 bg-slate-950/80 rounded-xl border border-slate-800/80">
             <div class="p-1.5 bg-white rounded-xl shadow-md flex-shrink-0">
-              <img id="wifiQrCodeImg" src="" alt="QR Code" class="w-28 h-28 sm:w-32 sm:h-32 rounded-lg" />
+              <div id="wifiQrCodeContainer" class="flex items-center justify-center min-w-[120px] min-h-[120px]"></div>
             </div>
             <div class="space-y-1.5 text-center sm:text-right">
               <div class="font-bold text-sky-300 text-xs sm:text-sm flex items-center justify-center sm:justify-start gap-1.5">
@@ -1024,7 +1050,20 @@
           if (drawerDbFilename && data.db) drawerDbFilename.innerText = data.db;
         }
       } catch (err) {
-        console.warn("خطا در بارگذاری اولیه:", err);
+        console.warn("سرور محلی در دسترس نیست - استفاده از دیتابیس داخلی مرورگر / گوشی:", err);
+        const cached = JSON.parse(localStorage.getItem('tasks') || '[]');
+        if (cached.length > 0) {
+          tasks = cached;
+        } else {
+          tasks = getDefaultStarterTasks();
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+        const cachedInts = localStorage.getItem('sovapp_integrations');
+        if (cachedInts) {
+          try { integrations = JSON.parse(cachedInts); } catch(e){}
+        }
+        const badge = document.getElementById('diskSyncText');
+        if (badge) badge.innerText = "نسخه مستقل (آفلاین)";
       }
       updateFolderBadges();
       renderFeed();
@@ -1825,7 +1864,7 @@ function switchGuideTab(tab) {
 
     function safeCreateIcons() {
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        try { window.safeCreateIcons(); } catch (e) {}
+        try { window.lucide.createIcons(); } catch (e) {}
       }
     }
 
@@ -1889,10 +1928,27 @@ function switchGuideTab(tab) {
       const fullUrl = `http://${primaryIp}:${currentPort}/tasks.html`;
       const shortUrl = `http://${primaryIp}:${currentPort}`;
 
-      // Set QR Code
-      const qrImg = document.getElementById('wifiQrCodeImg');
-      if (qrImg) {
-        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(fullUrl);
+      // Set QR Code (100% Offline via pure local QRCode library)
+      const qrBox = document.getElementById('wifiQrCodeContainer');
+      if (qrBox) {
+        qrBox.innerHTML = '';
+        if (typeof QRCode !== 'undefined') {
+          try {
+            new QRCode(qrBox, {
+              text: fullUrl,
+              width: 120,
+              height: 120,
+              colorDark: '#0f172a',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.M
+            });
+          } catch (e) {
+            console.warn('QR Code generation error:', e);
+            qrBox.innerHTML = `<a href="${fullUrl}" target="_blank" class="text-xs text-sky-600 underline font-mono">ورود مستقیم</a>`;
+          }
+        } else {
+          qrBox.innerHTML = `<a href="${fullUrl}" target="_blank" class="text-xs text-sky-600 underline font-mono">ورود مستقیم</a>`;
+        }
       }
 
       ipListContainer.innerHTML = `

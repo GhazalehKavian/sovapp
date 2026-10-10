@@ -3,7 +3,8 @@ const ASSETS = [
   '/',
   '/index.html',
   '/tasks.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/qrcode.min.js'
 ];
 
 self.addEventListener('install', (e) => {
