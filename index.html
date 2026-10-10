@@ -1,12 +1,2041 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=tasks.html">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:,">
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0284c7" />
+  <title>میز پیگیری تسک‌ها (sovapp)</title>
+  
+  <!-- فونت وزیرمتن -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    window.location.replace("tasks.html");
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Vazirmatn', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            source: {
+              gmail: '#EA4335',
+              outlook: '#0078D4',
+              jira: '#0052CC',
+            }
+          }
+        }
+      }
+    }
   </script>
-  <title>در حال انتقال...</title>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- کتابخانه‌های رسمی احراز هویت -->
+  <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    body {
+      font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #070b14;
+      color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Safe toast */
+    #copyToast {
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .scrollbar-visible::-webkit-scrollbar {
+      height: 10px;
+      width: 8px;
+    }
+    .scrollbar-visible::-webkit-scrollbar-track {
+      background: #1e293b;
+      border-radius: 8px;
+    }
+    .scrollbar-visible::-webkit-scrollbar-thumb {
+      background: #0284c7;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+      background: #0369a1;
+    }
+
+    @media print {
+      nav, #periodFilterBar, #reportActionButtons, #monitoringBtn, #syncCountdownWrapper, #folderSegmentBar, #statusFilterGroup, #sourceFilterGroup {
+        display: none !important;
+      }
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      #viewReport {
+        display: block !important;
+        padding: 0 !important;
+      }
+    }
+  </style>
 </head>
-<body style="background-color: #070b14;"></body>
+<body class="bg-[#070b14] text-slate-100 min-h-screen transition-colors">
+  <!-- Toast Alert for Copy Feedback -->
+  <div id="copyToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-400">
+    <i data-lucide="check-circle" class="w-4 h-4"></i>
+    <span id="copyToastText">آدرس کپی شد!</span>
+  </div>
+
+  <!-- ================= NAVBAR ================= -->
+  <nav class="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b0f19]/95 backdrop-blur-md">
+    <div class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 sm:px-4 lg:px-6">
+      <div class="flex h-16 items-center justify-between gap-3">
+        <!-- Logo -->
+        <div class="flex items-center gap-2">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-500/20">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+          </div>
+          <span class="hidden text-lg font-bold lg:block text-slate-100">میز پیگیری تسک‌ها (sovapp)</span>
+          <span id="envBadge" class="hidden px-2.5 py-0.5 text-xs rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 font-medium"></span>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="hidden items-center gap-1 md:flex">
+          <button id="navTabFeed" onclick="switchView('feed')" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-sky-950/60 text-sky-300">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span>صندوق کارها</span>
+          </button>
+          <button id="navTabReport" onclick="switchView('report')" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            <span>گزارش کار (داشبورد مدیر)</span>
+          </button>
+          <button id="navTabIntegrations" onclick="switchView('integrations')" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
+            <i data-lucide="plug" class="w-4 h-4"></i>
+            <span>اتصالات سرویس‌ها</span>
+          </button>
+        </div>
+
+        <!-- Controls (Left Side in RTL) -->
+        <div class="flex items-center gap-2">
+          <!-- ثبت تسک جدید -->
+          <button onclick="openAddTaskModal()" class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>ثبت تسک</span>
+          </button>
+
+          <!-- دکمه منوی امکانات و کارهای فرعی (سمت چپ) -->
+          <button id="sideMenuBtn" onclick="toggleSideMenu()" title="مشاهده امکانات جانبی، همگام‌سازی و تست‌ها" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition shadow-sm">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4 text-sky-400"></i>
+            <span class="hidden sm:inline">امکانات جانبی</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================= SIDE DRAWER: منوی کارهای فرعی و ابزارها (سمت چپ) ================= -->
+  <div id="sideMenuBackdrop" onclick="closeSideMenu()" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden transition-opacity"></div>
+  <aside id="sideMenuDrawer" class="fixed top-0 left-0 bottom-0 z-50 w-80 sm:w-96 bg-[#0b0f19] border-r border-slate-800 shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out text-slate-100">
+    
+    <!-- Drawer Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-[#070b14]">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-sm text-slate-100">امکانات جانبی و ابزارها</h3>
+          <p class="text-[11px] text-slate-400">تنظیمات، همگام‌سازی و تست‌های سیستم</p>
+        </div>
+      </div>
+      <button onclick="closeSideMenu()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Drawer Content (Scrollable) -->
+    <div class="flex-1 p-4 overflow-y-auto space-y-3.5 text-xs scrollbar-visible">
+      
+      <!-- ۱. همگام‌سازی Wi-Fi -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="wifi" class="w-4 h-4 text-sky-400"></i>
+            <span>همگام‌سازی Wi-Fi</span>
+          </span>
+          <span class="text-[11px] text-sky-400 bg-sky-950/60 border border-sky-900/60 px-2 py-0.5 rounded-full font-medium">شبکه محلی</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          اتصال گوشی به کامپیوتر در یک Wi-Fi مشترک و تبادل دوطرفه تسک‌ها.
+        </p>
+        <button onclick="closeSideMenu(); openWifiSyncModal();" class="w-full py-2 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-800/80 text-sky-300 font-bold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          <span>مدیریت اتصال و همگام‌سازی</span>
+        </button>
+      </div>
+
+      <!-- ۲. تست نوتیفیکیشن موبایل -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="smartphone" class="w-4 h-4 text-fuchsia-400"></i>
+            <span>اعلان موبایل (ntfy)</span>
+          </span>
+          <span class="text-[11px] text-fuchsia-400 bg-fuchsia-950/60 border border-fuchsia-900/60 px-2 py-0.5 rounded-full font-medium">هشدار ۴۸h</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          ارسال یک پیام تست برای اطمینان از دریافت آلارم‌ها روی گوشی همراه.
+        </p>
+        <button onclick="testMobileNotification()" class="w-full py-2 bg-fuchsia-950/50 hover:bg-fuchsia-900/60 border border-fuchsia-900/80 text-fuchsia-300 font-bold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i>
+          <span>ارسال اعلان تست به گوشی</span>
+        </button>
+      </div>
+
+      <!-- ۳. راهنمای اتصالات -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i>
+            <span>راهنمای جامع کاربری</span>
+          </span>
+          <span class="text-[11px] text-amber-400 bg-amber-950/60 border border-amber-900/60 px-2 py-0.5 rounded-full font-medium">مستندات</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          راهنمای دریافت توکن جیرا، ساخت کلاینت جیمیل، اوت‌لوک و نوتیفیکیشن.
+        </p>
+        <button onclick="closeSideMenu(); openGuideModal();" class="w-full py-2 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-900/60 text-amber-300 font-bold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+          <span>مشاهده راهنما</span>
+        </button>
+      </div>
+
+      <!-- ۴. وضعیت مانیتورینگ خودکار -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="bell" class="w-4 h-4 text-emerald-400"></i>
+            <span>پایش و مانیتورینگ</span>
+          </span>
+          <button id="drawerMonitoringBtn" onclick="toggleMonitoring()" class="text-[11px] text-emerald-300 bg-emerald-950/60 border border-emerald-900 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-900/80 transition">
+            <span id="drawerMonitoringText">فعال</span>
+          </button>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          پایش خودکار مهلت تسک‌ها و اعلام کارهای نیازمند اقدام فوری.
+        </p>
+      </div>
+
+      <!-- ۵. بروزرسانی فوری و تایمر -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-sky-400"></i>
+            <span>بروزرسانی سرویس‌ها</span>
+          </span>
+          <span id="drawerSyncCountdown" class="font-mono text-sky-400 font-bold">۱۵:۰۰</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          سرویس‌ها هر ۱۵ دقیقه خودکار استعلام می‌شوند؛ برای استعلام همین الان کلیک کنید:
+        </p>
+        <button onclick="forceManualSync()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+          <span>استعلام دستی فوری</span>
+        </button>
+      </div>
+
+      <!-- ۶. وضعیت دیتابیس محلی SQLite -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-1.5">
+        <div class="flex items-center justify-between text-slate-200 font-bold">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+            <span>پایگاه داده SQLite</span>
+          </span>
+          <span id="drawerDbBadge" class="text-[11px] text-emerald-400 font-mono">متصل</span>
+        </div>
+        <div class="text-[11px] text-slate-400 space-y-0.5">
+          <div>فایل دیتابیس: <code id="drawerDbFilename" class="text-slate-300 font-mono">tasks.db</code></div>
+          <div>محیط: <span id="drawerEnvLabel" class="text-slate-300 font-semibold">تولید / مشتری</span></div>
+        </div>
+      </div>
+
+      <!-- ۷. بازنشانی سیستم -->
+      <div class="pt-2">
+        <button onclick="factoryResetApp()" class="w-full py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>پاکسازی حافظه موقت (Reset)</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="px-5 py-3 border-t border-slate-800 bg-[#070b14] text-[11px] text-slate-500 text-center">
+      میز پیگیری تسک‌ها (sovapp) • نگارش امن
+    </div>
+  </aside>
+
+  <!-- ================= VIEW 1: TASK FEED ================= -->
+  <main id="viewFeed" class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 py-5 pb-20 md:pb-6 sm:px-4">
+    <!-- تب‌های ۴ پوشه + جستجو -->
+    <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div id="folderSegmentBar" class="flex flex-wrap items-center gap-1.5 bg-slate-900/90 p-1 rounded-2xl border border-slate-800">
+        <button id="tabActive" onclick="setInboxFolder('active')" class="folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm bg-slate-800 text-sky-300">
+          <i data-lucide="inbox" class="w-4 h-4"></i>
+          <span>کارهای جاری</span>
+          <span id="badgeActiveCount" class="px-1.5 py-0.5 rounded-full text-[10px] bg-sky-950 text-sky-300 font-mono">۰</span>
+        </button>
+
+        <button id="tabPending" onclick="setInboxFolder('pending')" class="folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-slate-200">
+          <i data-lucide="clock-alert" class="w-4 h-4 text-amber-500"></i>
+          <span>کارهای معلق (هشدار ۲۴س)</span>
+          <span id="badgePendingCount" class="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-950 text-amber-300 font-mono">۰</span>
+        </button>
+
+        <button id="tabArchived" onclick="setInboxFolder('archived')" class="folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-slate-200">
+          <i data-lucide="archive" class="w-4 h-4 text-emerald-500"></i>
+          <span>بایگانی (خاتمه‌یافته)</span>
+          <span id="badgeArchivedCount" class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 font-mono">۰</span>
+        </button>
+
+        <button id="tabTrash" onclick="setInboxFolder('trash')" class="folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-rose-400">
+          <i data-lucide="trash-2" class="w-4 h-4 text-rose-500"></i>
+          <span>سطل زباله</span>
+          <span id="badgeTrashCount" class="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-950 text-rose-300 font-mono">۰</span>
+        </button>
+      </div>
+
+      <div class="relative w-full lg:w-96">
+        <i data-lucide="search" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i>
+        <input type="text" id="searchInput" oninput="renderFeed()" placeholder="جست‌‌وجو در فرستنده، موضوع، متن..." class="w-full rounded-xl border border-slate-800 bg-[#0b0f19] py-2 pr-10 pl-4 text-xs text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+      </div>
+    </div>
+
+    <!-- جدول ۹ ستونه استاندارد مطابق تصویر ۲ -->
+    <div id="tableWrapper" class="overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0c111d] lg:block shadow-2xl">
+      <div class="overflow-x-auto scrollbar-visible">
+        <table class="w-full text-right border-collapse table-auto">
+          <thead>
+            <tr class="border-b border-slate-800 text-xs font-bold text-slate-400 bg-[#0e1424]/90">
+              <th class="py-3.5 px-4 w-32">منبع</th>
+              <th class="py-3.5 px-4 min-w-[320px]">عنوان و متن کار</th>
+              <th class="py-3.5 px-4 w-44">فرستنده</th>
+              <th class="py-3.5 px-3 w-28 text-center">زنجیره مکاتبه</th>
+              <th class="py-3.5 px-4 w-36">تاریخ دریافت</th>
+              <th class="py-3.5 px-4 w-44 text-center" id="thDeadlineOrDeleted">مهلت انجام</th>
+              <th class="py-3.5 px-4 w-44 text-center">وضعیت کار</th>
+              <th class="py-3.5 px-4 w-40 text-center">وضعیت پاسخ</th>
+              <th class="py-3.5 px-3 w-16 text-center">عملیات</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= VIEW 2: REPORT ================= -->
+  <main id="viewReport" class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 py-5 sm:px-4 hidden">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-800 pb-5">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-100">داشبورد گزارش عملکرد و پیگیری‌ها</h1>
+        <p class="mt-1 text-sm text-slate-400">گزارش کارهای خاتمه‌یافته جهت ارائه به مدیریت</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="copyExecutiveSummaryText()" class="px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-300 hover:bg-slate-800">
+          کپی خلاصه متنی
+        </button>
+        <button onclick="window.print()" class="px-3.5 py-2 rounded-lg bg-slate-100 text-slate-900 text-xs font-semibold">
+          چاپ PDF
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5 mb-6">
+      <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm">
+        <span class="text-xs text-slate-400">کل ورودی</span>
+        <p class="mt-2 text-2xl font-bold font-mono text-slate-100" id="kpiTotalIncoming">۰</p>
+      </div>
+      <div class="p-4 rounded-xl border border-emerald-900/60 bg-emerald-950/20 shadow-sm">
+        <span class="text-xs text-emerald-400">پاسخ داده شده</span>
+        <p class="mt-2 text-2xl font-bold font-mono text-emerald-400" id="kpiRespondedCount">۰</p>
+      </div>
+      <div class="p-4 rounded-xl border border-teal-900/60 bg-teal-950/20 shadow-sm">
+        <span class="text-xs text-teal-400">انجام شده</span>
+        <p class="mt-2 text-2xl font-bold font-mono text-teal-400" id="kpiDoneCount">۰</p>
+      </div>
+      <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm">
+        <span class="text-xs text-slate-400">لغو شده</span>
+        <p class="mt-2 text-2xl font-bold font-mono text-slate-400" id="kpiCancelledCount">۰</p>
+      </div>
+      <div class="p-4 rounded-xl border border-sky-900/60 bg-sky-950/20 shadow-sm col-span-2 lg:col-span-1">
+        <span class="text-xs text-sky-400">نرخ بهره‌وری</span>
+        <p class="mt-2 text-2xl font-bold font-mono text-sky-400" id="kpiCompletionRate">۰٪</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= VIEW 3: INTEGRATIONS ================= -->
+  <main id="viewIntegrations" class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 py-5 sm:px-4 hidden">
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-100">مرکز اتصالات و اعلان‌های سیستم</h1>
+        <p class="mt-1 text-sm text-slate-400">تنظیم منابع و کانال اختصاصی موبایل.</p>
+      </div>
+      <button onclick="factoryResetApp()" class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-rose-900 text-rose-400 hover:bg-rose-950/30">
+        پاکسازی حافظه
+      </button>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" id="integrationsGrid"></div>
+  </main>
+
+  <!-- ================= MODAL: اتصالات ================= -->
+  <div id="connectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 hidden transition-opacity duration-200">
+    <div class="w-full max-w-md rounded-2xl bg-[#0f172a] p-6 shadow-2xl border border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 id="connectModalTitle" class="font-bold text-slate-100">تنظیم اتصال</h3>
+        <button onclick="closeConnectModal()" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div id="googleSection" class="mt-4 space-y-3 hidden">
+        <label class="block text-xs font-semibold">Google OAuth Client ID:</label>
+        <input type="text" id="googleClientIdInput" placeholder="xxxx.apps.googleusercontent.com" dir="ltr" class="w-full p-2.5 font-mono text-xs border border-slate-700 rounded-lg bg-slate-900 text-slate-100">
+      </div>
+
+      <div id="outlookSection" class="mt-4 space-y-3 hidden">
+        <label class="block text-xs font-semibold">Microsoft Client ID (Azure):</label>
+        <input type="text" id="outlookClientIdInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" dir="ltr" class="w-full p-2.5 font-mono text-xs border border-slate-700 rounded-lg bg-slate-900 text-slate-100">
+      </div>
+
+      <div id="jiraSection" class="mt-4 space-y-3 hidden">
+        <div>
+          <label class="mb-1 block text-xs font-semibold">دامنه یا آدرس سرور جیرا:</label>
+          <input type="text" id="jiraDomain" placeholder="company یا https://jira.company.ir" dir="ltr" class="w-full p-2.5 text-xs border border-slate-700 rounded-lg bg-slate-900 text-slate-100">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold">ایمیل سازمانی (برای جیرای ابری):</label>
+          <input type="email" id="jiraEmail" placeholder="user@company.com" dir="ltr" class="w-full p-2.5 text-xs border border-slate-700 rounded-lg bg-slate-900 text-slate-100">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold">توکن جیرا (PAT یا API Token):</label>
+          <input type="password" id="jiraToken" placeholder="توکن اختصاصی" dir="ltr" class="w-full p-2.5 text-xs border border-slate-700 rounded-lg bg-slate-900 text-slate-100">
+        </div>
+      </div>
+
+      <div id="ntfySection" class="mt-4 space-y-3 hidden">
+        <div>
+          <label class="mb-1 block text-xs font-semibold">شناسه کانال ntfy (Topic Name):</label>
+          <input type="text" id="ntfyTopicInput" placeholder="مثال: ghazal-to-do" dir="ltr" class="w-full p-2.5 text-xs font-mono border border-slate-700 rounded-lg bg-slate-900 text-slate-100">
+        </div>
+      </div>
+
+      <div class="mt-6 flex gap-2">
+        <button onclick="closeConnectModal()" class="flex-1 py-2 text-xs border border-slate-700 rounded-lg text-slate-300">انصراف</button>
+        <button onclick="submitModalAuth()" class="flex-1 py-2 text-xs font-bold rounded-lg bg-sky-600 text-white hover:bg-sky-700">تایید و اتصال</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: تقویم شمسی ================= -->
+  <div id="jalaliPickerModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 hidden transition-opacity duration-200">
+    <div class="w-full max-w-sm rounded-2xl bg-[#0f172a] p-5 shadow-2xl border border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-sm text-slate-100">انتخاب مهلت انجام (شمسی)</h3>
+        <button onclick="closeJalaliPicker()" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="mt-4 flex items-center justify-between px-1">
+        <button type="button" onclick="changePickerMonth(-1)" class="p-1 rounded-lg hover:bg-slate-800 text-slate-300"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+        <div class="text-sm font-bold flex items-center gap-2">
+          <span id="pickerMonthName">مهر</span>
+          <span id="pickerYearNumber" class="font-mono text-sky-400 font-bold">۱۴۰۵</span>
+        </div>
+        <button type="button" onclick="changePickerMonth(1)" class="p-1 rounded-lg hover:bg-slate-800 text-slate-300"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+      </div>
+      <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-slate-500">
+        <span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span class="text-rose-500">ج</span>
+      </div>
+      <div id="pickerDaysGrid" class="mt-2 grid grid-cols-7 gap-1 text-xs"></div>
+      <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+        <span class="text-xs font-semibold text-slate-300">ساعت مهلت:</span>
+        <div class="flex items-center gap-1.5" dir="ltr">
+          <select id="pickerHour" onchange="updatePickerSelectionText()" class="p-1.5 text-xs font-mono border border-slate-700 rounded-lg bg-slate-900 text-slate-100"></select>
+          <span>:</span>
+          <select id="pickerMinute" onchange="updatePickerSelectionText()" class="p-1.5 text-xs font-mono border border-slate-700 rounded-lg bg-slate-900 text-slate-100"></select>
+        </div>
+      </div>
+      <div class="mt-3 bg-sky-950/40 p-2 text-center text-xs text-sky-300 rounded-lg" id="pickerSummaryText">-</div>
+      <div class="mt-4 flex gap-2">
+        <button onclick="clearJalaliPicker()" class="px-3 py-2 text-xs border border-rose-900 text-rose-400 rounded-lg hover:bg-rose-950/40">حذف مهلت</button>
+        <button onclick="applyJalaliPicker()" class="flex-1 px-3 py-2 text-xs font-bold bg-sky-600 text-white rounded-lg hover:bg-sky-700">تایید</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ADD TASK ================= -->
+  <div id="addTaskModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 hidden transition-opacity duration-200">
+    <div class="w-full max-w-lg rounded-2xl bg-[#0f172a] p-6 shadow-2xl border border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-slate-100">ثبت تسک جدید</h3>
+        <button onclick="closeAddTaskModal()" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="handleAddTaskSubmit(event)" class="mt-4 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-slate-300">منبع ارسال</label>
+            <select id="modalSource" class="w-full p-2.5 border border-slate-700 rounded-lg text-sm bg-slate-900 text-slate-100" required>
+              <option value="Gmail">Gmail</option>
+              <option value="Outlook">Outlook</option>
+              <option value="Jira">Jira</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-slate-300">فرستنده</label>
+            <input type="text" id="modalSender" class="w-full p-2.5 border border-slate-700 rounded-lg text-sm bg-slate-900 text-slate-100" placeholder="نام یا ایمیل" required>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-slate-300">عنوان پیام / تسک</label>
+          <input type="text" id="modalTitle" class="w-full p-2.5 border border-slate-700 rounded-lg text-sm bg-slate-900 text-slate-100" required>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-slate-300">متن توضیحات</label>
+          <textarea id="modalBody" rows="3" class="w-full p-2.5 border border-slate-700 rounded-lg text-sm bg-slate-900 text-slate-100"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeAddTaskModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm font-medium">انصراف</button>
+          <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-semibold hover:bg-sky-700">ذخیره تسک</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: راهنمای سیستم و اتصالات ================= -->
+  <div id="guideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-3 sm:p-4 hidden transition-opacity duration-200">
+    <div class="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0f172a] shadow-2xl border border-slate-800 overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0b0f19]">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <i data-lucide="book-open" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-100">راهنمای اتصال به سرویس‌ها و کاربری</h3>
+            <p class="text-xs text-slate-400">راهنمای گام‌به‌گام اتصال جیمیل، اوت‌لوک، جیرا و نوتیفیکیشن موبایل</p>
+          </div>
+        </div>
+        <button onclick="closeGuideModal()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-slate-800 bg-slate-900/60 px-4 pt-2 gap-1 overflow-x-auto text-xs font-semibold">
+        <button id="guideTabBtnJira" onclick="switchGuideTab('jira')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-sky-500 text-sky-400 bg-slate-800/60 transition whitespace-nowrap">
+          <i data-lucide="check-square" class="w-3.5 h-3.5 text-blue-400"></i>
+          <span>جیرا (Jira)</span>
+        </button>
+        <button id="guideTabBtnGmail" onclick="switchGuideTab('gmail')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="mail" class="w-3.5 h-3.5 text-red-400"></i>
+          <span>جیمیل (Gmail)</span>
+        </button>
+        <button id="guideTabBtnOutlook" onclick="switchGuideTab('outlook')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="inbox" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>اوت‌لوک (Outlook)</span>
+        </button>
+        <button id="guideTabBtnMobile" onclick="switchGuideTab('mobile')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5 text-fuchsia-400"></i>
+          <span>نوتیفیکیشن موبایل</span>
+        </button>
+        <button id="guideTabBtnEnv" onclick="switchGuideTab('env')" class="flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>محیط‌های کاری</span>
+        </button>
+      </div>
+
+      <!-- Tab Contents (Scrollable) -->
+      <div class="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm leading-relaxed scrollbar-visible flex-1">
+        
+        <!-- JIRA TAB -->
+        <div id="guideContentJira" class="space-y-3.5">
+          <div class="flex items-center gap-2 text-sky-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+            <span>راهنمای اتصال به جیرا (Atlassian Jira)</span>
+          </div>
+          <p class="text-slate-300">با اتصال جیرا، کلیه وظایف باز و معوقی که در جیرا به شما تخصیص داده شده به‌طور خودکار در داشبورد ثبت می‌شوند.</p>
+          <div class="rounded-xl bg-slate-900/80 p-4 border border-slate-800 space-y-2.5">
+            <div class="font-semibold text-slate-200">مراحل دریافت اطلاعات:</div>
+            <ol class="list-decimal list-inside space-y-2 text-slate-300 pr-1">
+              <li><strong class="text-white">دامنه جیرا:</strong> اگر از جیرای ابری استفاده می‌کنید، فقط نام شرکت (مثلاً <code class="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300" dir="ltr">mycompany</code>) را بنویسید. اگر از جیرای محلی سازمانی استفاده می‌کنید، آدرس کامل (مثلاً <code class="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300" dir="ltr">https://jira.company.ir</code>) را وارد نمایید.</li>
+              <li><strong class="text-white">ایمیل سازمانی:</strong> آدرس ایمیلی که با آن در جیرا لاگین می‌کنید.</li>
+              <li><strong class="text-white">توکن اختصاصی (API Token):</strong> وارد آدرس <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" class="text-sky-400 underline" dir="ltr">id.atlassian.com/manage-profile/security/api-tokens</a> شوید، دکمه <em>Create API token</em> را بزنید و توکن تولید شده را در کادر مربوطه قرار دهید.</li>
+            </ol>
+          </div>
+          <div class="p-3 rounded-lg bg-blue-950/30 border border-blue-900/50 text-blue-300 text-xs flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+            <span>ارتباط با جیرا از طریق پروکسی امن سرور پایتون محلی صورت می‌پذیرد تا هیچ مشکلی با مسدودسازی CORS نداشته باشید.</span>
+          </div>
+        </div>
+
+        <!-- GMAIL TAB -->
+        <div id="guideContentGmail" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-rose-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span>راهنمای اتصال به جیمیل (Google Gmail API)</span>
+          </div>
+          <p class="text-slate-300">اتصال رسمی به جیمیل با پروتکل استاندارد امن Google OAuth 2.0 انجام می‌شود.</p>
+          <div class="rounded-xl bg-slate-900/80 p-4 border border-slate-800 space-y-2.5">
+            <div class="font-semibold text-slate-200">مراحل ساخت Client ID در گوگل:</div>
+            <ol class="list-decimal list-inside space-y-2 text-slate-300 pr-1">
+              <li>به کنسول توسعه‌دهندگان گوگل در <a href="https://console.cloud.google.com" target="_blank" class="text-sky-400 underline" dir="ltr">console.cloud.google.com</a> بروید.</li>
+              <li>از منوی کناری به مسیر <strong>APIs & Services > Credentials</strong> بروید.</li>
+              <li>گزینه <strong>Create Credentials > OAuth client ID</strong> را انتخاب کرده و نوع را روی <strong>Web application</strong> قرار دهید.</li>
+              <li>در قسمت <strong>Authorized JavaScript origins</strong>، هر دو آدرس زیر را اضافه کنید:
+                <div class="mt-1 space-y-1 font-mono text-xs text-emerald-400" dir="ltr">
+                  <div class="bg-slate-950 p-1.5 rounded">http://localhost:8000</div>
+                  <div class="bg-slate-950 p-1.5 rounded">http://localhost:8080</div>
+                </div>
+              </li>
+              <li>شناسه تولیدشده (که به <code class="text-rose-300 font-mono" dir="ltr">.apps.googleusercontent.com</code> ختم می‌شود) را کپی و در کادر اتصال وارد کنید.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- OUTLOOK TAB -->
+        <div id="guideContentOutlook" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-sky-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="inbox" class="w-4 h-4"></i>
+            <span>راهنمای اتصال به اوت‌لوک و ایمیل سازمانی</span>
+          </div>
+          <p class="text-slate-300">برای اتصال ایمیل‌های اوت‌لوک دو روش سریع در اختیار دارید:</p>
+          <div class="space-y-3">
+            <div class="rounded-xl bg-slate-900/80 p-3.5 border border-slate-800">
+              <span class="font-bold text-sky-300">روش اول: ورود مستقیم با حساب مایکروسافت (MSAL)</span>
+              <p class="text-slate-300 mt-1">با ثبت یک برنامه در <a href="https://portal.azure.com" target="_blank" class="text-sky-400 underline">Azure Portal</a> در قسمت App Registrations و قرار دادن شناسه برنامه (Application ID) می‌توانید بدون رمزعبور و با یک کلیک متصل شوید.</p>
+            </div>
+            <div class="rounded-xl bg-slate-900/80 p-3.5 border border-slate-800">
+              <span class="font-bold text-emerald-300">روش دوم: اتصال IMAP سرور اختصاصی</span>
+              <p class="text-slate-300 mt-1">اگر سرور ایمیل اختصاصی سازمانی (مثل Exchange یا سرویس‌های پستی داخلی) دارید، سرور محلی پایتون از طریق پروتکل رمزنگاری‌شده IMAP با پورت ۹۹۳ پیام‌های دریافتی جدید را استخراج می‌کند.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOBILE TAB -->
+        <div id="guideContentMobile" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-fuchsia-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="smartphone" class="w-4 h-4"></i>
+            <span>راهنمای دریافت نوتیفیکیشن روی گوشی (Android / iOS)</span>
+          </div>
+          <p class="text-slate-300">این قابلیت به شما امکان می‌دهد هشدارهای کارهای مهم و مهلت ۴۸ ساعته را مستقیماً روی گوشی همراه خود دریافت نمایید، کاملاً رایگان و بدون نیاز به ثبت‌نام!</p>
+          <div class="rounded-xl bg-slate-900/80 p-4 border border-slate-800 space-y-2.5">
+            <ol class="list-decimal list-inside space-y-2 text-slate-300 pr-1">
+              <li>برنامه رایگان <strong class="text-white">ntfy</strong> را از گوگل‌پلی یا اپ‌استور روی گوشی خود نصب کنید.</li>
+              <li>برنامه را باز کرده و دکمه <strong>+ (عضویت در تاپیک / Subscribe)</strong> را بزنید.</li>
+              <li>نام تاپیک دلخواه خود را (مثلاً <code class="text-fuchsia-300 font-mono" dir="ltr">ghazal-to-do</code>) وارد کنید.</li>
+              <li>در داشبورد وب، در بخش <em>اتصالات سرویس‌ها > نوتیفیکیشن موبایل</em>، همین نام را وارد کرده و دکمه <strong>«تست ارسال»</strong> را بزنید تا از برقراری ارتباط مطمئن شوید!</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- ENV TAB -->
+        <div id="guideContentEnv" class="space-y-3.5 hidden">
+          <div class="flex items-center gap-2 text-amber-400 font-bold text-sm pb-1 border-b border-slate-800">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+            <span>راهنمای محیط‌های کاری (تست و اصلی)</span>
+          </div>
+          <p class="text-slate-300">سیستم شما دارای دو محیط ۱۰۰٪ مجزا و ایزوله است تا در حین آزمایش و توسعه، خطایی متوجه داده‌های مشتری نشود:</p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl bg-amber-950/20 border border-amber-900/40 p-3.5">
+              <span class="font-bold text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="flask-conical" class="w-4 h-4"></i> محیط تست (Develop)
+              </span>
+              <ul class="mt-2 space-y-1 text-slate-300 text-xs list-disc list-inside">
+                <li>اجرا با فایل <code class="text-amber-300">run_test.bat</code></li>
+                <li>پورت: <code class="text-amber-300" dir="ltr">8080</code></li>
+                <li>دیتابیس: <code class="text-amber-300" dir="ltr">tasks_test.db</code></li>
+                <li>دارای نشانگر زرد در هدر</li>
+              </ul>
+            </div>
+            <div class="rounded-xl bg-emerald-950/20 border border-emerald-900/40 p-3.5">
+              <span class="font-bold text-emerald-300 flex items-center gap-1.5">
+                <i data-lucide="check-circle" class="w-4 h-4"></i> محیط مشتری (Main)
+              </span>
+              <ul class="mt-2 space-y-1 text-slate-300 text-xs list-disc list-inside">
+                <li>اجرا با فایل <code class="text-emerald-300">run_prod.bat</code></li>
+                <li>پورت: <code class="text-emerald-300" dir="ltr">8000</code></li>
+                <li>دیتابیس: <code class="text-emerald-300" dir="ltr">tasks.db</code></li>
+                <li>نسخه رسمی و تمیز</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-6 py-3.5 border-t border-slate-800 bg-[#0b0f19]">
+        <span class="text-xs text-slate-500">تمامی تنظیمات به صورت امن و محلی ذخیره می‌شوند</span>
+        <button onclick="closeGuideModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">
+          متوجه شدم و بستن
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  
+  <!-- ================= MODAL: همگام‌سازی وای‌فای (Wi-Fi Sync) ================= -->
+  <div id="wifiSyncModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-3 sm:p-4 hidden transition-opacity duration-200">
+    <div class="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0f172a] shadow-2xl border border-slate-800 overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0b0f19]">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30">
+            <i data-lucide="wifi" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-100">همگام‌سازی صندوق کارها در Wi-Fi</h3>
+            <p class="text-xs text-slate-400">اتصال و همگام‌سازی دوطرفه میان گوشی و کامپیوتر در یک شبکه</p>
+          </div>
+        </div>
+        <button onclick="closeWifiSyncModal()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="p-6 overflow-y-auto space-y-5 text-xs sm:text-sm leading-relaxed scrollbar-visible">
+        
+        <!-- Box 1: آدرس اتصال برای گوشی + QR Code -->
+        <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200 flex items-center gap-2">
+              <i data-lucide="smartphone" class="w-4 h-4 text-sky-400"></i>
+              <span>آدرس اتصال در گوشی (همین شبکه):</span>
+            </span>
+            <span class="text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-900/60 px-2.5 py-0.5 rounded-full font-semibold">آماده اتصال</span>
+          </div>
+
+          <!-- QR Code Section -->
+          <div class="flex flex-col sm:flex-row items-center gap-4 p-3 bg-slate-950/80 rounded-xl border border-slate-800/80">
+            <div class="p-1.5 bg-white rounded-xl shadow-md flex-shrink-0">
+              <img id="wifiQrCodeImg" src="" alt="QR Code" class="w-28 h-28 sm:w-32 sm:h-32 rounded-lg" />
+            </div>
+            <div class="space-y-1.5 text-center sm:text-right">
+              <div class="font-bold text-sky-300 text-xs sm:text-sm flex items-center justify-center sm:justify-start gap-1.5">
+                <i data-lucide="scan" class="w-4 h-4 text-sky-400"></i>
+                <span>اسکن مستقیم با دوربین گوشی:</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                کافیست دوربین گوشی خود را مقابل این بارکد بگیرید تا لینک بدون نیاز به تایپ، فوراً در مرورگر گوشی باز شود.
+              </p>
+              <div class="text-[10px] text-slate-400">
+                (نکته: گوشی و کامپیوتر هر دو باید به یک مودم یا شبکه وصل باشند)
+              </div>
+            </div>
+          </div>
+
+          <div id="wifiIpList" class="space-y-2.5">
+            <!-- Dynamic IP addresses will be populated here -->
+          </div>
+        </div>
+
+        <!-- Box 2: عملکرد مستقل و مشترک -->
+        <div class="grid sm:grid-cols-2 gap-3 text-xs">
+          <div class="rounded-xl bg-slate-900/60 border border-slate-800/80 p-3.5 space-y-1.5">
+            <div class="font-bold text-amber-300 flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              <span>کار مستقل روی گوشی</span>
+            </div>
+            <p class="text-slate-400 leading-normal">
+              روی گوشی می‌توانید اتصالات و کارهایتان را کاملاً مستقل ثبت و مدیریت کنید، حتی بدون نیاز به باز بودن کامپیوتر.
+            </p>
+          </div>
+          <div class="rounded-xl bg-slate-900/60 border border-slate-800/80 p-3.5 space-y-1.5">
+            <div class="font-bold text-sky-300 flex items-center gap-1.5">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>همگام‌سازی دوطرفه</span>
+            </div>
+            <p class="text-slate-400 leading-normal">
+              با زدن دکمه زیر، تسک‌های گوشی به کامپیوتر منتقل شده و کارهای جدید کامپیوتر نیز به گوشی فرستاده می‌شوند.
+            </p>
+          </div>
+        </div>
+
+        <!-- Box 3: عملیات همگام‌سازی -->
+        <div class="rounded-xl bg-sky-950/20 border border-sky-900/40 p-4 space-y-3">
+          <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <input type="text" id="wifiServerUrlInput" placeholder="آدرس سرور مثلاً http://192.168.1.5:8000" dir="ltr" class="flex-1 font-mono text-xs p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200">
+            <button id="btnTriggerWifiSync" onclick="triggerManualWifiSync()" class="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition">
+              <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+              <span>همگام‌سازی الان</span>
+            </button>
+          </div>
+          <div id="wifiSyncStatusReport" class="text-xs text-slate-400">
+            وضعیت: آماده همگام‌سازی
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-6 py-3.5 border-t border-slate-800 bg-[#0b0f19]">
+        <span class="text-xs text-slate-500">همگام‌سازی مستقیم بدون دخالت اینترنت یا سرور ابری</span>
+        <button onclick="closeWifiSyncModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">
+          بستن
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT CORE ================= -->
+  <script>
+    const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const JALALI_MONTH_NAMES = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+
+    function toPersianDigits(input) {
+      if (input === null || input === undefined) return '';
+      return String(input).replace(/[0-9]/g, d => PERSIAN_DIGITS[Number(d)]);
+    }
+
+    function toJalali(gy, gm, gd) {
+      const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+      let gy2 = (gm > 2) ? (gy + 1) : gy;
+      let days = 355666 + (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + g_d_m[gm - 1];
+      let jy = -1595 + (33 * Math.floor(days / 12053));
+      days %= 12053;
+      jy += 4 * Math.floor(days / 1461);
+      days %= 1461;
+      if (days > 365) {
+        jy += Math.floor((days - 1) / 365);
+        days = (days - 1) % 365;
+      }
+      let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+      let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+      return [jy, jm, jd];
+    }
+
+    function jalaliToGregorian(jy, jm, jd) {
+      let gy = (jy <= 979) ? 621 : 1600;
+      jy -= (jy <= 979) ? 0 : 979;
+      let days = (365 * jy) + ((Math.floor(jy / 33)) * 8) + Math.floor(((jy % 33) + 3) / 4) + 78 + jd + ((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+      gy += 400 * Math.floor(days / 146097);
+      days %= 146097;
+      if (days > 36524) {
+        gy += 100 * Math.floor(--days / 36524);
+        days %= 36524;
+        if (days >= 365) days++;
+      }
+      gy += 4 * Math.floor(days / 1461);
+      days %= 1461;
+      if (days > 365) {
+        gy += Math.floor((days - 1) / 365);
+        days = (days - 1) % 365;
+      }
+      let gd = days + 1;
+      const sal_a = [0, 31, ((gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      let gm = 0;
+      for (gm = 0; gm < 13; gm++) {
+        let v = sal_a[gm];
+        if (gd <= v) break;
+        gd -= v;
+      }
+      return [gy, gm, gd];
+    }
+
+    function isJalaliLeapYear(jy) {
+      return (((((jy - ((jy > 0) ? 474 : 473)) % 2820) + 474) + 38) * 682) % 2816 < 682;
+    }
+
+    function getJalaliMonthDays(jy, jm) {
+      if (jm <= 6) return 31;
+      if (jm <= 11) return 30;
+      return isJalaliLeapYear(jy) ? 30 : 29;
+    }
+
+    function formatJalaliDateTime(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '-';
+      const [jy, jm, jd] = toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      const hours = d.getHours().toString().padStart(2, '0');
+      const minutes = d.getMinutes().toString().padStart(2, '0');
+      return `${toPersianDigits(jd)} ${JALALI_MONTH_NAMES[jm - 1]} ${toPersianDigits(jy)} - ${toPersianDigits(hours)}:${toPersianDigits(minutes)}`;
+    }
+
+    function formatRelativeTime(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '-';
+      const diffMs = Date.now() - d.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+
+      if (diffMin < 1) return 'همین الان';
+      if (diffMin < 60) return `${toPersianDigits(diffMin)} دقیقه پیش`;
+      if (diffHour < 24) return `${toPersianDigits(diffHour)} ساعت پیش`;
+      if (diffDay === 1) return 'دیروز';
+      return `${toPersianDigits(diffDay)} روز پیش`;
+    }
+
+    function isOverdue24h(sentAt) {
+      return Date.now() - new Date(sentAt).getTime() >= 24 * 3600 * 1000;
+    }
+
+    function isDueOverdue(dueDate) {
+      if (!dueDate) return false;
+      return Date.now() >= new Date(dueDate).getTime();
+    }
+
+    const sourceConfigs = {
+      Gmail: { name: 'Gmail', desc: 'همگام‌سازی رسمی Gmail API', color: 'text-red-500', icon: 'mail', badgeClass: 'bg-red-950/80 text-red-300 border border-red-800/60' },
+      Outlook: { name: 'Microsoft Outlook', desc: 'همگام‌سازی مستقیم Graph API', color: 'text-blue-500', icon: 'mail', badgeClass: 'bg-blue-950/80 text-blue-300 border border-blue-800/60' },
+      Jira: { name: 'Jira (Atlassian)', desc: 'پروکسی پایتون با عبور از فایروال', color: 'text-indigo-400', icon: 'check-square', badgeClass: 'bg-indigo-950/90 text-indigo-300 border border-indigo-800/60' },
+      Mobile: { name: 'اعلان موبایل (ntfy)', desc: 'ارسال هشدار و نوتیفیکیشن به گوشی', color: 'text-fuchsia-400', icon: 'smartphone', badgeClass: 'bg-fuchsia-950/80 text-fuchsia-300 border border-fuchsia-800/60' }
+    };
+
+    let tasks = [];
+    let integrations = [
+      { source: 'Gmail', connected: false, display_name: '' },
+      { source: 'Outlook', connected: false, display_name: '' },
+      { source: 'Jira', connected: false, display_name: '' }
+    ];
+    let permanentlyIgnoredIds = [];
+    let currentNtfyTopic = "ghazal-to-do";
+    let currentInboxFolder = 'active'; 
+    let currentStatusFilter = 'all';
+    let currentSourceFilter = 'all';
+    let activeModalSource = null;
+    let monitoring = true;
+
+    let storedGmailToken = localStorage.getItem('gmail_persisted_token') || null;
+    let storedGmailExpiry = localStorage.getItem('gmail_token_expiry') || 0;
+
+    let pickerTargetTaskId = null;
+    let pickerState = { year: 1405, month: 7, day: 19, hour: 12, minute: 0 };
+
+    // موتور تایمر زنده ۱۵ دقیقه‌ای
+    const SYNC_INTERVAL_SECONDS = 15 * 60;
+    let secondsUntilNextSync = SYNC_INTERVAL_SECONDS;
+
+    function updateCountdownDisplay() {
+      const m = Math.floor(secondsUntilNextSync / 60).toString().padStart(2, '0');
+      const s = (secondsUntilNextSync % 60).toString().padStart(2, '0');
+      const el = document.getElementById('syncCountdown');
+      if (el) el.innerText = `${toPersianDigits(m)}:${toPersianDigits(s)}`;
+    }
+
+    function forceManualSync() {
+      const el = document.getElementById('syncCountdown');
+      const icon = document.getElementById('syncSpinIcon');
+      if (el) el.innerText = "در حال بروزرسانی...";
+      if (icon) icon.style.animationDuration = '1s';
+
+      triggerAutoSync();
+
+      setTimeout(() => {
+        secondsUntilNextSync = SYNC_INTERVAL_SECONDS;
+        if (icon) icon.style.animationDuration = '6s';
+        updateCountdownDisplay();
+      }, 1500);
+    }
+
+    setInterval(() => {
+      secondsUntilNextSync--;
+      if (secondsUntilNextSync <= 0) {
+        forceManualSync();
+      } else {
+        updateCountdownDisplay();
+      }
+    }, 1000);
+
+    async function testMobileNotification() {
+      try {
+        const res = await fetch('/api/mobile/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic: currentNtfyTopic })
+        });
+        const data = await res.json();
+          if (data.network_ips) cachedNetworkIps = data.network_ips;
+        if (res.ok) {
+          alert(`نوتیفیکیشن با موفقیت به کانال [${data.topic}] ارسال شد! گوشی خود را بررسی کنید.`);
+        } else {
+          alert('خطا در ارسال نوتیفیکیشن');
+        }
+      } catch (e) {
+        alert('سرور پایتون در دسترس نیست.');
+      }
+    }
+
+    async function loadDataFromSQLite() {
+      try {
+        const res = await fetch('/api/load');
+        if (res.ok) {
+          const data = await res.json();
+          tasks = data.tasks || [];
+          permanentlyIgnoredIds = data.permanentlyIgnoredIds || [];
+          currentNtfyTopic = data.ntfy_topic || "ghazal-to-do";
+
+          if (data.integrations) {
+            integrations = data.integrations;
+          } else {
+            const cachedInts = localStorage.getItem('sovapp_integrations');
+            if (cachedInts) integrations = JSON.parse(cachedInts);
+          }
+
+          if (tasks.length === 0) {
+            const cached = JSON.parse(localStorage.getItem('tasks') || '[]');
+            if (cached.length > 0) {
+              tasks = cached;
+              saveState();
+            }
+          }
+
+          const badge = document.getElementById('diskSyncText');
+          if (badge) badge.innerText = "SQLite: متصل";
+
+          const envBadge = document.getElementById('envBadge');
+          if (envBadge) {
+            if (data.env === 'test') {
+              envBadge.classList.remove('hidden');
+              envBadge.innerText = 'محیط تست (' + (data.db || 'tasks_test.db') + ')';
+            } else {
+              envBadge.classList.add('hidden');
+            }
+          }
+          const drawerEnvLabel = document.getElementById('drawerEnvLabel');
+          if (drawerEnvLabel) drawerEnvLabel.innerText = (data.env === 'test') ? 'محیط تست (آزمایشی)' : 'محیط اصلی و پایدار';
+          const drawerDbFilename = document.getElementById('drawerDbFilename');
+          if (drawerDbFilename && data.db) drawerDbFilename.innerText = data.db;
+        }
+      } catch (err) {
+        console.warn("خطا در بارگذاری اولیه:", err);
+      }
+      updateFolderBadges();
+      renderFeed();
+      renderIntegrations();
+      safeCreateIcons();
+    }
+
+    function saveState() {
+      tasks.sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      localStorage.setItem('sovapp_integrations', JSON.stringify(integrations));
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+
+      fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks, permanentlyIgnoredIds, integrations })
+      }).then(() => {
+        const badge = document.getElementById('diskSyncText');
+        if (badge) badge.innerText = "SQLite: بروز";
+      }).catch(err => console.warn(err));
+
+      updateFolderBadges();
+      renderFeed();
+      renderIntegrations();
+      safeCreateIcons();
+    }
+
+    function setInboxFolder(folder) {
+      currentInboxFolder = folder;
+      const btns = {
+        active: document.getElementById('tabActive'),
+        pending: document.getElementById('tabPending'),
+        archived: document.getElementById('tabArchived'),
+        trash: document.getElementById('tabTrash')
+      };
+      Object.keys(btns).forEach(key => {
+        if (key === folder) {
+          btns[key].className = "folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm bg-slate-800 text-sky-300";
+        } else {
+          btns[key].className = "folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-slate-200";
+        }
+      });
+      renderFeed();
+    }
+
+    function updateFolderBadges() {
+      const activeCount = tasks.filter(t => !t.is_deleted && t.response_status === 'pending_response' && !isOverdue24h(t.sent_at) && !isDueOverdue(t.due_date)).length;
+      const pendingCount = tasks.filter(t => !t.is_deleted && t.response_status === 'pending_response' && (isOverdue24h(t.sent_at) || isDueOverdue(t.due_date))).length;
+      const archivedCount = tasks.filter(t => !t.is_deleted && (t.response_status === 'responded' || t.task_status === 'done')).length;
+      const trashCount = tasks.filter(t => t.is_deleted).length;
+
+      document.getElementById('badgeActiveCount').innerText = toPersianDigits(activeCount);
+      document.getElementById('badgePendingCount').innerText = toPersianDigits(pendingCount);
+      document.getElementById('badgeArchivedCount').innerText = toPersianDigits(archivedCount);
+      document.getElementById('badgeTrashCount').innerText = toPersianDigits(trashCount);
+    }
+
+    // ==========================================================
+    // تابع اصلی رندر جدول - پیاده‌سازی ۱۰۰٪ مطابق تصویر ارسالی
+    // ==========================================================
+    function renderFeed() {
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      const tbody = document.getElementById('taskTableBody');
+      const isTrashView = (currentInboxFolder === 'trash');
+
+      const filtered = tasks.filter(t => {
+        let inFolder = false;
+        if (isTrashView) inFolder = t.is_deleted === true;
+        else if (t.is_deleted) inFolder = false;
+        else if (currentInboxFolder === 'active') inFolder = (t.response_status === 'pending_response' && !isOverdue24h(t.sent_at) && !isDueOverdue(t.due_date));
+        else if (currentInboxFolder === 'pending') inFolder = (t.response_status === 'pending_response' && (isOverdue24h(t.sent_at) || isDueOverdue(t.due_date)));
+        else if (currentInboxFolder === 'archived') inFolder = (t.response_status === 'responded' || t.task_status === 'done');
+
+        const matchesStatus = currentStatusFilter === 'all' || t.task_status === currentStatusFilter;
+        const matchesSource = currentSourceFilter === 'all' || t.source === currentSourceFilter;
+        const matchesQuery = !query || t.title.toLowerCase().includes(query) || t.sender.toLowerCase().includes(query);
+
+        return inFolder && matchesStatus && matchesSource && matchesQuery;
+      }).sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="py-16 text-center text-slate-500 text-xs">
+              <i data-lucide="check-circle" class="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80"></i>
+              موردی برای نمایش در این پوشه وجود ندارد.
+            </td>
+          </tr>
+        `;
+        safeCreateIcons();
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => {
+        const is24h = isOverdue24h(t.sent_at) && t.task_status !== 'done' && t.response_status !== 'responded';
+        const isDeadline = isDueOverdue(t.due_date) && t.task_status !== 'done';
+        const hasWarning = !isTrashView && (is24h || isDeadline);
+        const cfg = sourceConfigs[t.source] || sourceConfigs.Gmail;
+
+        // ظاهر دقیق ردیف با هاور و پس‌زمینه تصویر ۲
+        return `
+          <tr class="border-b border-slate-800/80 bg-[#111827]/40 hover:bg-[#161f33]/80 transition text-xs">
+            
+            <!-- ۱. منبع (با نشانگر معلق ۲۴س) -->
+            <td class="py-3.5 px-4 whitespace-nowrap">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${cfg.badgeClass}">
+                  ${t.source}
+                </span>
+                ${hasWarning ? `
+                  <div class="inline-flex items-center gap-1 rounded-md bg-amber-950/90 border border-amber-600/50 px-2 py-0.5 text-xs font-bold text-amber-400">
+                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>${is24h ? 'معلق ۲۴س' : 'سررسید'}</span>
+                  </div>
+                ` : ''}
+              </div>
+            </td>
+
+            <!-- ۲. عنوان و متن کار -->
+            <td class="py-3.5 px-4">
+              <div class="max-w-md">
+                <p class="font-bold text-slate-100 text-sm line-clamp-1">${t.title}</p>
+                ${t.body ? `<p class="mt-0.5 text-xs text-slate-400 line-clamp-1">${t.body}</p>` : ''}
+              </div>
+            </td>
+
+            <!-- ۳. فرستنده -->
+            <td class="py-3.5 px-4 whitespace-nowrap">
+              <span class="text-xs font-mono text-slate-300">${t.sender}</span>
+            </td>
+
+            <!-- ۴. زنجیره مکاتبه -->
+            <td class="py-3.5 px-3 text-center whitespace-nowrap">
+              <span class="text-xs text-slate-400">تک‌پیام</span>
+            </td>
+
+            <!-- ۵. تاریخ دریافت (زمان نسبی در بالا، تاریخ کامل شمسی در پایین) -->
+            <td class="py-3.5 px-4 whitespace-nowrap">
+              <div>
+                <p class="text-xs font-bold text-slate-200">${formatRelativeTime(t.sent_at)}</p>
+                <p class="mt-0.5 text-[11px] text-slate-500 font-mono">${formatJalaliDateTime(t.sent_at)}</p>
+              </div>
+            </td>
+
+            <!-- ۶. مهلت انجام (دقیقاً کپسول سفید/صورتی روشن با فونت رز پررنگ و آیکون تقویم آبی) -->
+            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+              ${isTrashView ? '-' : (t.due_date ? `
+                <button onclick="openJalaliPicker('${t.id}')" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-100">
+                  <i data-lucide="calendar" class="w-3.5 h-3.5 text-sky-500"></i>
+                  <span>${formatJalaliDateTime(t.due_date)}</span>
+                </button>
+              ` : `
+                <button onclick="openJalaliPicker('${t.id}')" class="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-700 bg-slate-800/40 px-3 py-1.5 text-xs font-medium text-slate-400 hover:border-sky-500 hover:text-sky-400">
+                  <i data-lucide="calendar" class="w-3.5 h-3.5 text-sky-500"></i>
+                  <span>+ تعیین مهلت</span>
+                </button>
+              `)}
+            </td>
+
+            <!-- ۷. وضعیت کار (سگمنت تیره ۳ دکمه‌ای [لغو | انجام | انتظار] با فعال‌سازی تم زرد کهربایی) -->
+            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+              ${isTrashView ? '-' : `
+                <div class="inline-flex items-center gap-0.5 rounded-xl border border-slate-700/80 bg-slate-900/90 p-0.5 shadow-inner">
+                  <button onclick="setTaskStatus('${t.id}', 'pending')" class="px-2.5 py-1 text-xs rounded-lg transition ${
+                    t.task_status === 'pending'
+                      ? 'bg-amber-950/90 text-amber-400 border border-amber-600/50 shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-slate-200 font-medium'
+                  }">انتظار</button>
+                  <button onclick="setTaskStatus('${t.id}', 'done')" class="px-2.5 py-1 text-xs rounded-lg transition ${
+                    t.task_status === 'done'
+                      ? 'bg-emerald-950/90 text-emerald-400 border border-emerald-600/50 shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-slate-200 font-medium'
+                  }">انجام</button>
+                  <button onclick="setTaskStatus('${t.id}', 'cancelled')" class="px-2.5 py-1 text-xs rounded-lg transition ${
+                    t.task_status === 'cancelled'
+                      ? 'bg-slate-800 text-slate-300 border border-slate-600/50 shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-slate-200 font-medium'
+                  }">لغو</button>
+                </div>
+              `}
+            </td>
+
+            <!-- ۸. وضعیت پاسخ (کپسول قهوه‌ای/نارنجی تیره با آیکون چت و متن نارنجی) -->
+            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+              ${isTrashView ? '-' : `
+                <button onclick="toggleResponseStatus('${t.id}')" class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                  t.response_status === 'responded'
+                    ? 'border-emerald-900/80 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/60'
+                    : 'border-amber-900/80 bg-amber-950/40 text-amber-500 hover:bg-amber-900/60'
+                }">
+                  <i data-lucide="${t.response_status === 'responded' ? 'check-circle-2' : 'message-circle'}" class="w-3.5 h-3.5 ${
+                    t.response_status === 'responded' ? 'text-emerald-400' : 'text-amber-500'
+                  }"></i>
+                  <span>${t.response_status === 'responded' ? 'پاسخ داده شد' : 'در انتظار پاسخ'}</span>
+                </button>
+              `}
+            </td>
+
+            <!-- ۹. عملیات (سطل زباله ساده و تمیز) -->
+            <td class="py-3.5 px-3 text-center whitespace-nowrap">
+              ${isTrashView ? `
+                <div class="flex items-center justify-center gap-1">
+                  <button onclick="restoreTask('${t.id}')" class="p-1 text-emerald-400 hover:text-emerald-300"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                  <button onclick="permanentDeleteTask('${t.id}')" class="p-1 text-rose-500 hover:text-rose-400"><i data-lucide="x-circle" class="w-4 h-4"></i></button>
+                </div>
+              ` : `
+                <button onclick="softDeleteTask('${t.id}')" class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg transition" title="انتقال به سطل زباله">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              `}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      safeCreateIcons();
+    }
+
+    function softDeleteTask(id) {
+      const item = tasks.find(t => t.id === id);
+      if (item) {
+        item.is_deleted = true;
+        item.deleted_at = new Date().toISOString();
+        saveState();
+      }
+    }
+
+    function restoreTask(id) {
+      const item = tasks.find(t => t.id === id);
+      if (item) {
+        item.is_deleted = false;
+        item.deleted_at = null;
+        saveState();
+      }
+    }
+
+    function permanentDeleteTask(id) {
+      if (confirm('این تسک به طور دائم حذف شود؟')) {
+        if (!permanentlyIgnoredIds.includes(id)) permanentlyIgnoredIds.push(id);
+        tasks = tasks.filter(t => t.id !== id);
+        saveState();
+      }
+    }
+
+    function setTaskStatus(id, st) {
+      const item = tasks.find(t => t.id === id);
+      if (item) {
+        item.task_status = st;
+        item.updated_at = new Date().toISOString();
+        saveState();
+      }
+    }
+
+    function toggleResponseStatus(id) {
+      const item = tasks.find(t => t.id === id);
+      if (item) {
+        item.response_status = (item.response_status === 'responded') ? 'pending_response' : 'responded';
+        item.responded_at = (item.response_status === 'responded') ? new Date().toISOString() : null;
+        item.updated_at = new Date().toISOString();
+        saveState();
+      }
+    }
+
+    // کارت‌های مرکز اتصالات
+    function renderIntegrations() {
+      const grid = document.getElementById('integrationsGrid');
+      grid.innerHTML = Object.keys(sourceConfigs).map(key => {
+        const cfg = sourceConfigs[key];
+        let isConnected = false;
+        let displayName = '';
+
+        if (key === 'Mobile') {
+          isConnected = Boolean(currentNtfyTopic);
+          displayName = currentNtfyTopic;
+        } else {
+          const conn = integrations.find(i => i.source === key) || { connected: false, display_name: '' };
+          isConnected = conn.connected;
+          displayName = conn.display_name || cfg.name;
+        }
+
+        return `
+          <div class="rounded-xl border-2 p-5 border-slate-800 bg-[#0f172a] flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-3">
+                <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-900 ${cfg.color}">
+                  <i data-lucide="${cfg.icon || 'plug'}" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-sm ${cfg.color}">${cfg.name}</h3>
+                  <p class="text-xs text-slate-400 mt-0.5">${cfg.desc}</p>
+                </div>
+              </div>
+              <div class="mt-4">
+                <span class="text-xs font-semibold ${isConnected ? 'text-emerald-400' : 'text-slate-500'}">
+                  ${isConnected ? `● متصل: ${displayName}` : '○ غیرمتصل'}
+                </span>
+              </div>
+            </div>
+
+            <div class="mt-5 flex gap-2">
+              ${key === 'Mobile' ? `
+                <button onclick="openConnectModal('Mobile')" class="flex-1 py-2 rounded-lg bg-fuchsia-600 text-white text-xs font-bold hover:bg-fuchsia-700">
+                  تنظیم کانال
+                </button>
+                <button onclick="testMobileNotification()" class="px-3 py-2 rounded-lg border border-fuchsia-900 text-fuchsia-300 text-xs font-semibold hover:bg-fuchsia-950/40">
+                  تست
+                </button>
+              ` : (isConnected ? `
+                <button onclick="disconnectSource('${key}')" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-rose-950/40 hover:text-rose-400">
+                  قطع اتصال
+                </button>
+              ` : `
+                <button onclick="openConnectModal('${key}')" class="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 text-slate-900 px-4 py-2 text-xs font-bold hover:bg-white transition">
+                  <i data-lucide="plug" class="w-4 h-4"></i>
+                  <span>اتصال به سرویس</span>
+                </button>
+              `)}
+            </div>
+          </div>
+        `;
+      }).join('');
+      safeCreateIcons();
+    }
+
+    function disconnectSource(source) {
+      if (!confirm(`آیا از قطع اتصال ${source} اطمینان دارید؟`)) return;
+      const target = integrations.find(i => i.source === source);
+      if (target) {
+        target.connected = false;
+        target.display_name = '';
+        saveState();
+      }
+    }
+
+    function openConnectModal(src) {
+      activeModalSource = src;
+      document.getElementById('connectModalTitle').innerText = (src === 'Mobile') ? 'تنظیم کانال اعلان موبایل' : `تنظیم اتصال ${src}`;
+      
+      document.getElementById('googleSection').classList.toggle('hidden', src !== 'Gmail');
+      document.getElementById('outlookSection').classList.toggle('hidden', src !== 'Outlook');
+      document.getElementById('jiraSection').classList.toggle('hidden', src !== 'Jira');
+      document.getElementById('ntfySection').classList.toggle('hidden', src !== 'Mobile');
+
+      if (src === 'Gmail') {
+        document.getElementById('googleClientIdInput').value = localStorage.getItem('google_client_id') || '';
+      } else if (src === 'Outlook') {
+        document.getElementById('outlookClientIdInput').value = localStorage.getItem('outlook_client_id') || '';
+      } else if (src === 'Jira') {
+        const cfg = JSON.parse(localStorage.getItem('jira_cfg') || '{}');
+        document.getElementById('jiraDomain').value = cfg.domain || '';
+        document.getElementById('jiraEmail').value = cfg.email || '';
+        document.getElementById('jiraToken').value = cfg.token || '';
+      } else if (src === 'Mobile') {
+        document.getElementById('ntfyTopicInput').value = currentNtfyTopic || 'ghazal-to-do';
+      }
+
+      document.getElementById('connectModal').classList.remove('hidden');
+      safeCreateIcons();
+    }
+
+    function closeConnectModal() {
+      document.getElementById('connectModal').classList.add('hidden');
+    }
+
+    async function submitModalAuth() {
+      if (activeModalSource === 'Mobile') {
+        const topic = document.getElementById('ntfyTopicInput').value.trim();
+        if (!topic) return alert('شناسه کانال نمی‌تواند خالی باشد.');
+
+        const res = await fetch('/api/settings/mobile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic })
+        });
+        if (res.ok) {
+          currentNtfyTopic = topic;
+          renderIntegrations();
+          closeConnectModal();
+          alert(`کانال اعلان موبایل با موفقیت ذخیره شد: [${topic}]`);
+        }
+      } else if (activeModalSource === 'Jira') {
+        const domain = document.getElementById('jiraDomain').value.trim();
+        const email = document.getElementById('jiraEmail').value.trim();
+        const token = document.getElementById('jiraToken').value.trim();
+        if (!domain || !token) return alert('اطلاعات جیرا ناقص است.');
+
+        localStorage.setItem('jira_cfg', JSON.stringify({ domain, email, token }));
+        closeConnectModal();
+        executeJiraSync();
+      } else if (activeModalSource === 'Gmail') {
+        const id = document.getElementById('googleClientIdInput').value.trim();
+        if (!id) return alert('لطفاً Google Client ID را وارد کنید.');
+        localStorage.setItem('google_client_id', id);
+        closeConnectModal();
+        executeGmailSync(id, false);
+      } else if (activeModalSource === 'Outlook') {
+        const id = document.getElementById('outlookClientIdInput').value.trim();
+        if (!id) return alert('لطفاً Microsoft Client ID را وارد کنید.');
+        localStorage.setItem('outlook_client_id', id);
+        closeConnectModal();
+        executeMsalOutlookSync(id, false);
+      }
+    }
+
+    async function pullGmailWithToken(accessToken, isSilent = false) {
+      try {
+        const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!listRes.ok) throw new Error("پاسخ نامعتبر از Gmail API");
+        const listData = await listRes.json();
+        const messages = listData.messages || [];
+        let newCount = 0;
+
+        for (const msg of messages) {
+          if (tasks.some(t => t.id === msg.id) || permanentlyIgnoredIds.includes(msg.id)) continue;
+
+          const detailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+
+          if (detailRes.ok) {
+            const detail = await detailRes.json();
+            const headers = detail.payload?.headers || [];
+            const subject = headers.find(h => h.name.toLowerCase() === 'subject')?.value || '(بدون موضوع)';
+            const from = headers.find(h => h.name.toLowerCase() === 'from')?.value || 'Gmail Sender';
+            const dateHeader = headers.find(h => h.name.toLowerCase() === 'date')?.value;
+            const sentAt = dateHeader ? new Date(dateHeader).toISOString() : new Date().toISOString();
+
+            tasks.unshift({
+              id: msg.id,
+              source: 'Gmail',
+              sender: from,
+              title: subject,
+              body: detail.snippet || '',
+              sent_at: sentAt,
+              due_date: null,
+              task_status: 'pending',
+              response_status: 'pending_response',
+              responded_at: null,
+              is_deleted: false,
+              deleted_at: null,
+              alert_triggered: false
+            });
+            newCount++;
+          }
+        }
+
+        const target = integrations.find(i => i.source === 'Gmail');
+        if (target) {
+          target.connected = true;
+          target.display_name = 'حساب Google متصل شد';
+        }
+        saveState();
+        if (!isSilent) alert(`همگام‌سازی جیمیل انجام شد. ${newCount} پیام جدید افزوده شد.`);
+      } catch (err) {
+        if (!isSilent) alert('خطا: ' + err.message);
+      }
+    }
+
+    function executeGmailSync(clientId, isSilent = false) {
+      if (!window.google || !window.google.accounts) return;
+      const now = Date.now();
+      if (storedGmailToken && now < storedGmailExpiry) {
+        pullGmailWithToken(storedGmailToken, isSilent);
+        return;
+      }
+      if (isSilent) return;
+
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/gmail.readonly',
+        callback: async (response) => {
+          if (response.error) {
+            alert('خطا در ورود: ' + response.error);
+            return;
+          }
+          storedGmailToken = response.access_token;
+          storedGmailExpiry = Date.now() + (response.expires_in * 1000 || 3500000);
+          localStorage.setItem('gmail_persisted_token', storedGmailToken);
+          localStorage.setItem('gmail_token_expiry', storedGmailExpiry);
+          pullGmailWithToken(storedGmailToken, false);
+        }
+      });
+      client.requestAccessToken();
+    }
+
+    async function executeMsalOutlookSync(clientId, isSilent = false) {
+      const msalConfig = {
+        auth: {
+          clientId: clientId,
+          authority: "https://login.microsoftonline.com/common",
+          redirectUri: window.location.origin + window.location.pathname
+        },
+        cache: { cacheLocation: "localStorage", storeAuthStateInCookie: true }
+      };
+
+      try {
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+        await msalInstance.initialize();
+
+        let token = null;
+        const accounts = msalInstance.getAllAccounts();
+
+        if (accounts.length > 0) {
+          try {
+            const silentRes = await msalInstance.acquireTokenSilent({
+              scopes: ["Mail.Read", "User.Read"],
+              account: accounts[0]
+            });
+            token = silentRes.accessToken;
+          } catch (e) {}
+        }
+
+        if (!token) {
+          if (isSilent) return;
+          const loginRes = await msalInstance.loginPopup({ scopes: ["Mail.Read", "User.Read"] });
+          token = loginRes.accessToken;
+        }
+
+        const res = await fetch("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=20&$select=id,sender,subject,bodyPreview,receivedDateTime", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error("پاسخ نامعتبر از Outlook");
+        const data = await res.json();
+        const emails = data.value || [];
+        let newCount = 0;
+
+        emails.forEach(mail => {
+          if (!tasks.some(t => t.id === mail.id) && !permanentlyIgnoredIds.includes(mail.id)) {
+            tasks.unshift({
+              id: mail.id,
+              source: "Outlook",
+              sender: mail.sender?.emailAddress?.name || mail.sender?.emailAddress?.address || "Outlook Sender",
+              title: mail.subject || "(بدون موضوع)",
+              body: mail.bodyPreview || "",
+              sent_at: mail.receivedDateTime,
+              due_date: null,
+              task_status: "pending",
+              response_status: "pending_response",
+              responded_at: null,
+              is_deleted: false,
+              deleted_at: null,
+              alert_triggered: false
+            });
+            newCount++;
+          }
+        });
+
+        const target = integrations.find(i => i.source === 'Outlook');
+        if (target) {
+          target.connected = true;
+          target.display_name = accounts[0]?.username || "Outlook Connected";
+        }
+        saveState();
+        if (!isSilent) alert(`همگام‌سازی تکمیل شد. ${newCount} پیام جدید افزوده شد.`);
+      } catch (err) {
+        if (!isSilent) alert("خطا در اتصال: " + err.message);
+      }
+    }
+
+    async function executeJiraSync() {
+      const cfg = JSON.parse(localStorage.getItem('jira_cfg') || '{}');
+      if (!cfg.domain || !cfg.token) return;
+
+      try {
+        const res = await fetch('/api/jira/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cfg)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          let newCount = 0;
+          (data.issues || []).forEach(issue => {
+            if (!tasks.some(t => t.id === issue.key) && !permanentlyIgnoredIds.includes(issue.key)) {
+              tasks.unshift({
+                id: issue.key,
+                source: 'Jira',
+                sender: issue.fields?.creator?.displayName || 'Jira',
+                title: `[${issue.key}] ${issue.fields?.summary || ''}`,
+                body: issue.fields?.description || '',
+                sent_at: issue.fields?.created || new Date().toISOString(),
+                due_date: issue.fields?.duedate ? new Date(issue.fields.duedate).toISOString() : null,
+                task_status: 'pending',
+                response_status: 'pending_response',
+                is_deleted: false,
+                alert_triggered: false
+              });
+              newCount++;
+            }
+          });
+          const target = integrations.find(i => i.source === 'Jira');
+          if (target) target.connected = true;
+          saveState();
+        }
+      } catch (e) {}
+    }
+
+    function triggerAutoSync() {
+      const gConn = integrations.find(i => i.source === 'Gmail')?.connected;
+      const oConn = integrations.find(i => i.source === 'Outlook')?.connected;
+      const jConn = integrations.find(i => i.source === 'Jira')?.connected;
+
+      const gClientId = localStorage.getItem('google_client_id');
+      const oClientId = localStorage.getItem('outlook_client_id');
+
+      if (gConn && gClientId) executeGmailSync(gClientId, true);
+      if (oConn && oClientId) executeMsalOutlookSync(oClientId, true);
+      if (jConn) executeJiraSync();
+    }
+
+    function initHourMinuteDropdowns() {
+      const hSelect = document.getElementById('pickerHour');
+      const mSelect = document.getElementById('pickerMinute');
+      hSelect.innerHTML = '';
+      mSelect.innerHTML = '';
+      for (let i = 0; i < 24; i++) hSelect.innerHTML += `<option value="${i}">${toPersianDigits(i.toString().padStart(2, '0'))}</option>`;
+      for (let i = 0; i < 60; i += 5) mSelect.innerHTML += `<option value="${i}">${toPersianDigits(i.toString().padStart(2, '0'))}</option>`;
+    }
+
+    function openJalaliPicker(taskId) {
+      pickerTargetTaskId = taskId;
+      const task = tasks.find(t => t.id === taskId);
+      let baseDate = (task && task.due_date) ? new Date(task.due_date) : new Date(Date.now() + 2 * 3600 * 1000);
+
+      const [jy, jm, jd] = toJalali(baseDate.getFullYear(), baseDate.getMonth() + 1, baseDate.getDate());
+      pickerState = {
+        year: jy,
+        month: jm,
+        day: jd,
+        hour: baseDate.getHours(),
+        minute: Math.floor(baseDate.getMinutes() / 5) * 5
+      };
+
+      document.getElementById('pickerHour').value = pickerState.hour;
+      document.getElementById('pickerMinute').value = pickerState.minute;
+
+      renderPickerCalendar();
+      updatePickerSelectionText();
+      document.getElementById('jalaliPickerModal').classList.remove('hidden');
+      safeCreateIcons();
+    }
+
+    function closeJalaliPicker() {
+      document.getElementById('jalaliPickerModal').classList.add('hidden');
+    }
+
+    function changePickerMonth(delta) {
+      pickerState.month += delta;
+      if (pickerState.month > 12) { pickerState.month = 1; pickerState.year++; }
+      else if (pickerState.month < 1) { pickerState.month = 12; pickerState.year--; }
+      const maxDays = getJalaliMonthDays(pickerState.year, pickerState.month);
+      if (pickerState.day > maxDays) pickerState.day = maxDays;
+      renderPickerCalendar();
+      updatePickerSelectionText();
+    }
+
+    function renderPickerCalendar() {
+      document.getElementById('pickerMonthName').innerText = JALALI_MONTH_NAMES[pickerState.month - 1];
+      document.getElementById('pickerYearNumber').innerText = toPersianDigits(pickerState.year);
+
+      const [gy, gm, gd] = jalaliToGregorian(pickerState.year, pickerState.month, 1);
+      const firstDayDate = new Date(gy, gm - 1, gd);
+      const startDayOfWeek = (firstDayDate.getDay() + 1) % 7;
+      const totalDays = getJalaliMonthDays(pickerState.year, pickerState.month);
+
+      const grid = document.getElementById('pickerDaysGrid');
+      grid.innerHTML = '';
+      for (let i = 0; i < startDayOfWeek; i++) grid.innerHTML += `<div class="h-8"></div>`;
+      for (let d = 1; d <= totalDays; d++) {
+        const isSelected = (d === pickerState.day);
+        grid.innerHTML += `
+          <button type="button" onclick="selectPickerDay(${d})" class="h-8 w-8 mx-auto flex items-center justify-center rounded-lg font-mono text-xs transition ${
+            isSelected ? 'bg-sky-600 text-white font-bold shadow-sm' : 'hover:bg-slate-800 text-slate-300'
+          }">
+            ${toPersianDigits(d)}
+          </button>
+        `;
+      }
+    }
+
+    function selectPickerDay(d) {
+      pickerState.day = d;
+      renderPickerCalendar();
+      updatePickerSelectionText();
+    }
+
+    function updatePickerSelectionText() {
+      const h = parseInt(document.getElementById('pickerHour').value, 10);
+      const m = parseInt(document.getElementById('pickerMinute').value, 10);
+      document.getElementById('pickerSummaryText').innerText = 
+        `مهلت: ${toPersianDigits(pickerState.day)} ${JALALI_MONTH_NAMES[pickerState.month - 1]} ${toPersianDigits(pickerState.year)} - ساعت ${toPersianDigits(h.toString().padStart(2, '0'))}:${toPersianDigits(m.toString().padStart(2, '0'))}`;
+    }
+
+    function applyJalaliPicker() {
+      if (!pickerTargetTaskId) return;
+      const [gy, gm, gd] = jalaliToGregorian(pickerState.year, pickerState.month, pickerState.day);
+      const targetDate = new Date(gy, gm - 1, gd, pickerState.hour, pickerState.minute, 0);
+      const item = tasks.find(t => t.id === pickerTargetTaskId);
+      if (item) {
+        item.due_date = targetDate.toISOString();
+        saveState();
+      }
+      closeJalaliPicker();
+    }
+
+    function clearJalaliPicker() {
+      if (!pickerTargetTaskId) return;
+      const item = tasks.find(t => t.id === pickerTargetTaskId);
+      if (item) {
+        item.due_date = null;
+        saveState();
+      }
+      closeJalaliPicker();
+    }
+
+    function openAddTaskModal() {
+      document.getElementById('modalTitle').value = '';
+      document.getElementById('modalSender').value = '';
+      document.getElementById('modalBody').value = '';
+      document.getElementById('addTaskModal').classList.remove('hidden');
+    }
+
+    function closeAddTaskModal() {
+      document.getElementById('addTaskModal').classList.add('hidden');
+    }
+
+    function handleAddTaskSubmit(e) {
+      e.preventDefault();
+      const newTask = {
+        id: 'task-' + Date.now(),
+        source: document.getElementById('modalSource').value,
+        sender: document.getElementById('modalSender').value,
+        title: document.getElementById('modalTitle').value,
+        body: document.getElementById('modalBody').value,
+        sent_at: new Date().toISOString(),
+        due_date: null,
+        task_status: 'pending',
+        response_status: 'pending_response',
+        responded_at: null,
+        is_deleted: false,
+        deleted_at: null,
+        alert_triggered: false
+      };
+      tasks.unshift(newTask);
+      saveState();
+      closeAddTaskModal();
+    }
+
+function switchGuideTab(tab) {
+      const tabs = ['jira', 'gmail', 'outlook', 'mobile', 'env'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('guideTabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        const cnt = document.getElementById('guideContent' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn && cnt) {
+          if (t === tab) {
+            btn.classList.add('border-sky-500', 'text-sky-400', 'bg-slate-800/60');
+            btn.classList.remove('border-transparent', 'text-slate-400');
+            cnt.classList.remove('hidden');
+          } else {
+            btn.classList.remove('border-sky-500', 'text-sky-400', 'bg-slate-800/60');
+            btn.classList.add('border-transparent', 'text-slate-400');
+            cnt.classList.add('hidden');
+          }
+        }
+      });
+      safeCreateIcons();
+    }
+
+    
+    let cachedNetworkIps = [];
+
+    function toggleSideMenu() {
+      const drawer = document.getElementById('sideMenuDrawer');
+      const backdrop = document.getElementById('sideMenuBackdrop');
+      if (drawer && backdrop) {
+        const isClosed = drawer.classList.contains('-translate-x-full');
+        if (isClosed) {
+          drawer.classList.remove('-translate-x-full');
+          backdrop.classList.remove('hidden');
+        } else {
+          drawer.classList.add('-translate-x-full');
+          backdrop.classList.add('hidden');
+        }
+        safeCreateIcons();
+      }
+    }
+
+    function closeSideMenu() {
+      const drawer = document.getElementById('sideMenuDrawer');
+      const backdrop = document.getElementById('sideMenuBackdrop');
+      if (drawer) drawer.classList.add('-translate-x-full');
+      if (backdrop) backdrop.classList.add('hidden');
+    }
+
+    function safeCreateIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        try { window.safeCreateIcons(); } catch (e) {}
+      }
+    }
+
+    function copyTextToClipboard(text) {
+      let succeeded = false;
+      try {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.setAttribute('readonly', '');
+        el.style.position = 'fixed';
+        el.style.left = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        succeeded = document.execCommand('copy');
+        document.body.removeChild(el);
+      } catch (err) {
+        succeeded = false;
+      }
+
+      if (!succeeded && navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => { succeeded = true; }).catch(() => {});
+      }
+
+      const toast = document.getElementById('copyToast');
+      const toastText = document.getElementById('copyToastText');
+      if (toast && toastText) {
+        toastText.innerText = 'آدرس کپی شد: ' + text;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3500);
+      } else {
+        alert('آدرس کپی شد:\n' + text);
+      }
+    }
+
+    async function openWifiSyncModal() {
+      const modal = document.getElementById('wifiSyncModal');
+      if (!modal) return;
+
+      const ipListContainer = document.getElementById('wifiIpList');
+      const currentPort = window.location.port || '8000';
+
+      let validIps = [];
+      try {
+        const res = await fetch('/api/env');
+        if (res.ok) {
+          const envData = await res.json();
+          validIps = (envData.network_ips || []).filter(ip => !ip.startsWith('127.') && ip !== 'localhost');
+          if (envData.db) {
+            const dbNameEl = document.getElementById('drawerDbFilename');
+            if (dbNameEl) dbNameEl.innerText = envData.db;
+          }
+        }
+      } catch (e) {}
+
+      if (validIps.length === 0 && cachedNetworkIps.length > 0) {
+        validIps = cachedNetworkIps.filter(ip => !ip.startsWith('127.') && ip !== 'localhost');
+      }
+
+      ipListContainer.innerHTML = '';
+      const primaryIp = validIps.length > 0 ? validIps[0] : '172.19.10.22';
+      const fullUrl = `http://${primaryIp}:${currentPort}/tasks.html`;
+      const shortUrl = `http://${primaryIp}:${currentPort}`;
+
+      // Set QR Code
+      const qrImg = document.getElementById('wifiQrCodeImg');
+      if (qrImg) {
+        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(fullUrl);
+      }
+
+      ipListContainer.innerHTML = `
+        <div class="space-y-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+          <label class="block text-slate-300 font-semibold text-xs">آدرس کامل اختصاصی:</label>
+          <div class="flex gap-2">
+            <input type="text" readonly value="${fullUrl}" onclick="this.select(); copyTextToClipboard(this.value);" class="flex-1 font-mono text-xs p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-sky-300 font-bold cursor-pointer selection:bg-sky-600" dir="ltr" title="کلیک کنید تا کپی شود">
+            <button type="button" onclick="copyTextToClipboard('${fullUrl}')" class="px-4 py-2 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition flex items-center gap-1.5 flex-shrink-0">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>کپی</span>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 font-mono" dir="ltr">آدرس ریشه کوتاه نیز قابل استفاده است: ${shortUrl}</p>
+        </div>
+      `;
+
+      const serverInput = document.getElementById('wifiServerUrlInput');
+      if (serverInput) {
+        serverInput.value = localStorage.getItem('wifi_sync_server_url') || shortUrl;
+      }
+
+      modal.classList.remove('hidden');
+      safeCreateIcons();
+    }
+
+    function closeWifiSyncModal() {
+      const modal = document.getElementById('wifiSyncModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function triggerManualWifiSync() {
+      const report = document.getElementById('wifiSyncStatusReport');
+      const btn = document.getElementById('btnTriggerWifiSync');
+      const input = document.getElementById('wifiServerUrlInput');
+      const targetBase = (input && input.value.trim()) ? input.value.trim().replace(/\/$/, '') : window.location.origin;
+
+      localStorage.setItem('wifi_sync_server_url', targetBase);
+
+      if (btn) btn.disabled = true;
+      if (report) report.innerHTML = '<span class="text-sky-400">در حال اتصال و تبادل کارهای صندوق...</span>';
+
+      try {
+        const res = await fetch(`${targetBase}/api/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: tasks })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tasks) {
+            tasks = data.tasks;
+            saveState();
+            updateFolderBadges();
+            renderFeed();
+            safeCreateIcons();
+          }
+          if (report) {
+            report.innerHTML = `<span class="text-emerald-400 font-semibold">✅ همگام‌سازی موفق! ${toPersianDigits(data.synced_count || 0)} تسک تبادل شد. صندوق کامپیوتر و گوشی کاملاً یکسان هستند.</span>`;
+          }
+        } else {
+          throw new Error(`خطای سرور: ${res.status}`);
+        }
+      } catch (err) {
+        if (report) {
+          report.innerHTML = `<span class="text-rose-400">❌ عدم دسترسی به سرور (${err.message}). مطمئن شوید هر دو دستگاه به یک Wi-Fi وصل هستند.</span>`;
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function openGuideModal() {
+      const modal = document.getElementById('guideModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        switchGuideTab('jira');
+        safeCreateIcons();
+      }
+    }
+
+    function closeGuideModal() {
+      const modal = document.getElementById('guideModal');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function switchView(view) {
+      document.getElementById('viewFeed').classList.toggle('hidden', view !== 'feed');
+      document.getElementById('viewReport').classList.toggle('hidden', view !== 'report');
+      document.getElementById('viewIntegrations').classList.toggle('hidden', view !== 'integrations');
+      safeCreateIcons();
+    }
+
+    function toggleMonitoring() {
+      monitoring = !monitoring;
+      const monText = document.getElementById('monitoringText');
+      if (monText) monText.innerText = monitoring ? 'مانیتورینگ: فعال' : 'مانیتورینگ: غیرفعال';
+      const drawerText = document.getElementById('drawerMonitoringText');
+      if (drawerText) {
+        drawerText.innerText = monitoring ? 'فعال' : 'غیرفعال';
+        drawerText.parentElement.className = monitoring
+          ? 'text-[11px] text-emerald-300 bg-emerald-950/60 border border-emerald-900 px-2.5 py-1 rounded-lg font-bold'
+          : 'text-[11px] text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg font-bold';
+      }
+    }
+
+    function factoryResetApp() {
+      if (confirm('تمام اطلاعات این سیستم به صورت دائمی پاک شود؟')) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+
+    initHourMinuteDropdowns();
+    loadDataFromSQLite();
+    updateCountdownDisplay();
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+  <!-- ================= MOBILE BOTTOM NAV ================= -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0b0f19]/95 backdrop-blur-md border-t border-slate-800 px-3 py-2 flex items-center justify-around text-[10px]">
+    <button onclick="switchView('feed')" class="flex flex-col items-center gap-1 text-sky-400 hover:text-sky-300">
+      <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+      <span>صندوق کارها</span>
+    </button>
+    <button onclick="switchView('report')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+      <span>گزارش کار</span>
+    </button>
+    <button onclick="switchView('integrations')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="plug" class="w-4 h-4"></i>
+      <span>اتصالات</span>
+    </button>
+    <button onclick="toggleSideMenu()" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+      <span>امکانات</span>
+    </button>
+  </nav>
+</body>
 </html>

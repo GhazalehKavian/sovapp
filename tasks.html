@@ -43,7 +43,18 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    body { font-family: 'Vazirmatn', sans-serif; }
+    body {
+      font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #070b14;
+      color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Safe toast */
+    #copyToast {
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
 
     .scrollbar-visible::-webkit-scrollbar {
       height: 10px;
@@ -79,6 +90,11 @@
   </style>
 </head>
 <body class="bg-[#070b14] text-slate-100 min-h-screen transition-colors">
+  <!-- Toast Alert for Copy Feedback -->
+  <div id="copyToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-400">
+    <i data-lucide="check-circle" class="w-4 h-4"></i>
+    <span id="copyToastText">آدرس کپی شد!</span>
+  </div>
 
   <!-- ================= NAVBAR ================= -->
   <nav class="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b0f19]/95 backdrop-blur-md">
@@ -270,7 +286,7 @@
   </aside>
 
   <!-- ================= VIEW 1: TASK FEED ================= -->
-  <main id="viewFeed" class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 py-5 sm:px-4">
+  <main id="viewFeed" class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 py-5 pb-20 md:pb-6 sm:px-4">
     <!-- تب‌های ۴ پوشه + جستجو -->
     <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div id="folderSegmentBar" class="flex flex-wrap items-center gap-1.5 bg-slate-900/90 p-1 rounded-2xl border border-slate-800">
@@ -702,23 +718,38 @@
       <!-- Content -->
       <div class="p-6 overflow-y-auto space-y-5 text-xs sm:text-sm leading-relaxed scrollbar-visible">
         
-        <!-- Box 1: آدرس اتصال برای گوشی -->
-        <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-4 space-y-3">
+        <!-- Box 1: آدرس اتصال برای گوشی + QR Code -->
+        <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-4 space-y-4">
           <div class="flex items-center justify-between">
             <span class="font-bold text-slate-200 flex items-center gap-2">
               <i data-lucide="smartphone" class="w-4 h-4 text-sky-400"></i>
-              <span>آدرس اتصال در گوشی (همین Wi-Fi):</span>
+              <span>آدرس اتصال در گوشی (همین شبکه):</span>
             </span>
-            <span class="text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-900/60 px-2 py-0.5 rounded-full font-medium">آماده اتصال</span>
+            <span class="text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-900/60 px-2.5 py-0.5 rounded-full font-semibold">آماده اتصال</span>
           </div>
 
-          <div id="wifiIpList" class="space-y-2">
+          <!-- QR Code Section -->
+          <div class="flex flex-col sm:flex-row items-center gap-4 p-3 bg-slate-950/80 rounded-xl border border-slate-800/80">
+            <div class="p-1.5 bg-white rounded-xl shadow-md flex-shrink-0">
+              <img id="wifiQrCodeImg" src="" alt="QR Code" class="w-28 h-28 sm:w-32 sm:h-32 rounded-lg" />
+            </div>
+            <div class="space-y-1.5 text-center sm:text-right">
+              <div class="font-bold text-sky-300 text-xs sm:text-sm flex items-center justify-center sm:justify-start gap-1.5">
+                <i data-lucide="scan" class="w-4 h-4 text-sky-400"></i>
+                <span>اسکن مستقیم با دوربین گوشی:</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                کافیست دوربین گوشی خود را مقابل این بارکد بگیرید تا لینک بدون نیاز به تایپ، فوراً در مرورگر گوشی باز شود.
+              </p>
+              <div class="text-[10px] text-slate-400">
+                (نکته: گوشی و کامپیوتر هر دو باید به یک مودم یا شبکه وصل باشند)
+              </div>
+            </div>
+          </div>
+
+          <div id="wifiIpList" class="space-y-2.5">
             <!-- Dynamic IP addresses will be populated here -->
           </div>
-
-          <p class="text-[11px] text-slate-400">
-            برای اجرای برنامه روی گوشی، کافیست گوشی شما به همین مودم/وای‌فای وصل باشد و یکی از آدرس‌های بالا را در مرورگر گوشی باز کنید.
-          </p>
         </div>
 
         <!-- Box 2: عملکرد مستقل و مشترک -->
@@ -998,7 +1029,7 @@
       updateFolderBadges();
       renderFeed();
       renderIntegrations();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function saveState() {
@@ -1018,7 +1049,7 @@
       updateFolderBadges();
       renderFeed();
       renderIntegrations();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function setInboxFolder(folder) {
@@ -1083,7 +1114,7 @@
             </td>
           </tr>
         `;
-        lucide.createIcons();
+        safeCreateIcons();
         return;
       }
 
@@ -1209,7 +1240,7 @@
         `;
       }).join('');
 
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function softDeleteTask(id) {
@@ -1315,7 +1346,7 @@
           </div>
         `;
       }).join('');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function disconnectSource(source) {
@@ -1351,7 +1382,7 @@
       }
 
       document.getElementById('connectModal').classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function closeConnectModal() {
@@ -1637,7 +1668,7 @@
       renderPickerCalendar();
       updatePickerSelectionText();
       document.getElementById('jalaliPickerModal').classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function closeJalaliPicker() {
@@ -1763,7 +1794,7 @@ function switchGuideTab(tab) {
           }
         }
       });
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     
@@ -1781,7 +1812,7 @@ function switchGuideTab(tab) {
           drawer.classList.add('-translate-x-full');
           backdrop.classList.add('hidden');
         }
-        lucide.createIcons();
+        safeCreateIcons();
       }
     }
 
@@ -1792,6 +1823,43 @@ function switchGuideTab(tab) {
       if (backdrop) backdrop.classList.add('hidden');
     }
 
+    function safeCreateIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        try { window.safeCreateIcons(); } catch (e) {}
+      }
+    }
+
+    function copyTextToClipboard(text) {
+      let succeeded = false;
+      try {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.setAttribute('readonly', '');
+        el.style.position = 'fixed';
+        el.style.left = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        succeeded = document.execCommand('copy');
+        document.body.removeChild(el);
+      } catch (err) {
+        succeeded = false;
+      }
+
+      if (!succeeded && navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => { succeeded = true; }).catch(() => {});
+      }
+
+      const toast = document.getElementById('copyToast');
+      const toastText = document.getElementById('copyToastText');
+      if (toast && toastText) {
+        toastText.innerText = 'آدرس کپی شد: ' + text;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3500);
+      } else {
+        alert('آدرس کپی شد:\n' + text);
+      }
+    }
+
     async function openWifiSyncModal() {
       const modal = document.getElementById('wifiSyncModal');
       if (!modal) return;
@@ -1799,7 +1867,6 @@ function switchGuideTab(tab) {
       const ipListContainer = document.getElementById('wifiIpList');
       const currentPort = window.location.port || '8000';
 
-      // Fetch fresh network IPs dynamically from server
       let validIps = [];
       try {
         const res = await fetch('/api/env');
@@ -1818,38 +1885,37 @@ function switchGuideTab(tab) {
       }
 
       ipListContainer.innerHTML = '';
-      if (validIps.length > 0) {
-        validIps.forEach(ip => {
-          const fullUrl = `http://${ip}:${currentPort}/tasks.html`;
-          const shortUrl = `http://${ip}:${currentPort}`;
-          ipListContainer.innerHTML += `
-            <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
-              <div class="flex flex-col truncate pr-1">
-                <span class="font-mono text-xs text-sky-300 font-bold select-all" dir="ltr">${fullUrl}</span>
-                <span class="text-[10px] text-slate-500 font-mono" dir="ltr">یا آدرس کوتاه: ${shortUrl}</span>
-              </div>
-              <button type="button" onclick="navigator.clipboard.writeText('${fullUrl}'); alert('آدرس کپی شد:\n${fullUrl}\n\nاین آدرس را در مرورگر گوشی باز کنید.');" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition flex-shrink-0">
-                کپی آدرس
-              </button>
-            </div>
-          `;
-        });
-      } else {
-        ipListContainer.innerHTML = `
-          <div class="p-3 text-amber-300 bg-amber-950/30 border border-amber-900/50 rounded-lg text-xs">
-            سیستم آی‌پی شبکه فعالی پیدا نکرد. لطفاً مطمئن شوید کامپیوتر به وای‌فای یا مودم وصل است.
-          </div>
-        `;
+      const primaryIp = validIps.length > 0 ? validIps[0] : '172.19.10.22';
+      const fullUrl = `http://${primaryIp}:${currentPort}/tasks.html`;
+      const shortUrl = `http://${primaryIp}:${currentPort}`;
+
+      // Set QR Code
+      const qrImg = document.getElementById('wifiQrCodeImg');
+      if (qrImg) {
+        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(fullUrl);
       }
+
+      ipListContainer.innerHTML = `
+        <div class="space-y-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+          <label class="block text-slate-300 font-semibold text-xs">آدرس کامل اختصاصی:</label>
+          <div class="flex gap-2">
+            <input type="text" readonly value="${fullUrl}" onclick="this.select(); copyTextToClipboard(this.value);" class="flex-1 font-mono text-xs p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-sky-300 font-bold cursor-pointer selection:bg-sky-600" dir="ltr" title="کلیک کنید تا کپی شود">
+            <button type="button" onclick="copyTextToClipboard('${fullUrl}')" class="px-4 py-2 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition flex items-center gap-1.5 flex-shrink-0">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>کپی</span>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 font-mono" dir="ltr">آدرس ریشه کوتاه نیز قابل استفاده است: ${shortUrl}</p>
+        </div>
+      `;
 
       const serverInput = document.getElementById('wifiServerUrlInput');
       if (serverInput) {
-        const defaultTarget = validIps.length > 0 ? `http://${validIps[0]}:${currentPort}` : window.location.origin;
-        serverInput.value = localStorage.getItem('wifi_sync_server_url') || defaultTarget;
+        serverInput.value = localStorage.getItem('wifi_sync_server_url') || shortUrl;
       }
 
       modal.classList.remove('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function closeWifiSyncModal() {
@@ -1882,7 +1948,7 @@ function switchGuideTab(tab) {
             saveState();
             updateFolderBadges();
             renderFeed();
-            lucide.createIcons();
+            safeCreateIcons();
           }
           if (report) {
             report.innerHTML = `<span class="text-emerald-400 font-semibold">✅ همگام‌سازی موفق! ${toPersianDigits(data.synced_count || 0)} تسک تبادل شد. صندوق کامپیوتر و گوشی کاملاً یکسان هستند.</span>`;
@@ -1904,7 +1970,7 @@ function switchGuideTab(tab) {
       if (modal) {
         modal.classList.remove('hidden');
         switchGuideTab('jira');
-        lucide.createIcons();
+        safeCreateIcons();
       }
     }
 
@@ -1919,7 +1985,7 @@ function switchGuideTab(tab) {
       document.getElementById('viewFeed').classList.toggle('hidden', view !== 'feed');
       document.getElementById('viewReport').classList.toggle('hidden', view !== 'report');
       document.getElementById('viewIntegrations').classList.toggle('hidden', view !== 'integrations');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function toggleMonitoring() {
@@ -1952,5 +2018,24 @@ function switchGuideTab(tab) {
       });
     }
   </script>
+  <!-- ================= MOBILE BOTTOM NAV ================= -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0b0f19]/95 backdrop-blur-md border-t border-slate-800 px-3 py-2 flex items-center justify-around text-[10px]">
+    <button onclick="switchView('feed')" class="flex flex-col items-center gap-1 text-sky-400 hover:text-sky-300">
+      <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+      <span>صندوق کارها</span>
+    </button>
+    <button onclick="switchView('report')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+      <span>گزارش کار</span>
+    </button>
+    <button onclick="switchView('integrations')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="plug" class="w-4 h-4"></i>
+      <span>اتصالات</span>
+    </button>
+    <button onclick="toggleSideMenu()" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+      <span>امکانات</span>
+    </button>
+  </nav>
 </body>
 </html>

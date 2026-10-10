@@ -13,6 +13,7 @@ import email.utils
 from email.header import decode_header
 import webbrowser
 import socket
+import subprocess
 import threading
 import time
 from datetime import datetime, timezone
@@ -61,31 +62,48 @@ def parse_datetime(dt_str):
 
 
 def get_network_ips():
-    """Detect real local network IPs (excludes loopback 127.0.0.1 and localhost)."""
-    ips = []
-    # Method 1: Find primary outbound routing interface
+    """Detect real physical local LAN IPs (excludes loopback 127.x, localhost, and VPN tunnels like Windscribe)."""
+    physical_ips = []
+    other_ips = []
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))
-        primary = s.getsockname()[0]
-        s.close()
-        if primary and not primary.startswith('127.'):
-            ips.append(primary)
+        cmd = ['powershell', '-NoProfile', '-Command',
+               'Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -Property IPAddress, InterfaceAlias | ConvertTo-Json']
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=3)
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout)
+            if isinstance(data, dict):
+                data = [data]
+            for item in data:
+                ip = item.get('IPAddress', '').strip()
+                alias = item.get('InterfaceAlias', '').lower()
+                if not ip or ip.startswith('127.') or ip == 'localhost':
+                    continue
+                # Ignore VPN and tunnel interfaces
+                if any(v in alias for v in ['vpn', 'windscribe', 'ikev2', 'tun', 'tap', 'wireguard', 'ppp', 'vethernet']):
+                    continue
+                # Prioritize physical Ethernet / Wi-Fi
+                if any(p in alias for p in ['wi-fi', 'wifi', 'wlan', 'ethernet', 'lan', 'local']):
+                    if ip not in physical_ips:
+                        physical_ips.append(ip)
+                else:
+                    if ip not in other_ips:
+                        other_ips.append(ip)
     except Exception:
         pass
 
-    # Method 2: Inspect all active hostname interfaces
-    try:
-        hostname = socket.gethostname()
-        for info in socket.getaddrinfo(hostname, None):
-            ip = info[4][0]
-            if ':' not in ip and not ip.startswith('127.') and ip != 'localhost':
-                if ip not in ips:
-                    ips.append(ip)
-    except Exception:
-        pass
+    ips = physical_ips if physical_ips else other_ips
+    if not ips:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            outbound = s.getsockname()[0]
+            s.close()
+            if outbound and not outbound.startswith('127.'):
+                ips.append(outbound)
+        except Exception:
+            pass
 
-    return ips
+    return ips if ips else ['172.19.10.22']
 
 
 def init_db(db_path=None):
