@@ -61,26 +61,31 @@ def parse_datetime(dt_str):
 
 
 def get_network_ips():
+    """Detect real local network IPs (excludes loopback 127.0.0.1 and localhost)."""
     ips = []
-    try:
-        hostname = socket.gethostname()
-        for info in socket.getaddrinfo(hostname, None):
-            ip = info[4][0]
-            if ':' not in ip and not ip.startswith('127.'):
-                if ip not in ips:
-                    ips.append(ip)
-    except Exception:
-        pass
+    # Method 1: Find primary outbound routing interface
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8', 80))
         primary = s.getsockname()[0]
         s.close()
-        if primary not in ips and not primary.startswith('127.'):
-            ips.insert(0, primary)
+        if primary and not primary.startswith('127.'):
+            ips.append(primary)
     except Exception:
         pass
-    return ips if ips else ['127.0.0.1']
+
+    # Method 2: Inspect all active hostname interfaces
+    try:
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None):
+            ip = info[4][0]
+            if ':' not in ip and not ip.startswith('127.') and ip != 'localhost':
+                if ip not in ips:
+                    ips.append(ip)
+    except Exception:
+        pass
+
+    return ips
 
 
 def init_db(db_path=None):
@@ -204,10 +209,6 @@ def send_android_notification(title, message, priority='default', tags='bell', t
 # 48h Overdue & 3-Hour Repeating Alert Worker
 # ==========================================
 def check_and_send_repeating_alerts(db_path=None, force_notification_fn=None):
-    """
-    Checks for unresponded tasks older than 48 hours.
-    Sends initial 48h alert, and repeating alerts every 3 hours until acted upon.
-    """
     target_db = db_path or DB_FILE
     now = datetime.now(timezone.utc)
     alerts_sent = 0
@@ -238,21 +239,18 @@ def check_and_send_repeating_alerts(db_path=None, force_notification_fn=None):
 
             diff_hours = (now - sent_at).total_seconds() / 3600.0
 
-            # Must be over 48 hours
             if diff_hours >= 48.0:
                 last_alert_str = t.get('last_alert_at')
                 should_alert = False
                 is_repeat = False
 
                 if not last_alert_str:
-                    # Initial 48h alert
                     should_alert = True
                     is_repeat = False
                 else:
                     last_alert_dt = parse_datetime(last_alert_str)
                     if last_alert_dt:
                         hours_since_last_alert = (now - last_alert_dt).total_seconds() / 3600.0
-                        # Repeat every 3 hours
                         if hours_since_last_alert >= 3.0:
                             should_alert = True
                             is_repeat = True
@@ -315,6 +313,10 @@ def start_alert_worker():
 # HTTP Request Handler
 # ==========================================
 class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        # Anchor directory permanently to BASE_DIR regardless of launch CWD
+        super().__init__(*args, directory=BASE_DIR, **kwargs)
+
     def translate_path(self, path):
         # Security: Prevent directory traversal outside BASE_DIR
         clean_path = super().translate_path(path)
@@ -356,7 +358,6 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                 conn.row_factory = sqlite3.Row
                 c = conn.cursor()
 
-                # Get existing DB tasks mapping
                 c.execute('SELECT * FROM tasks')
                 existing_map = {row['id']: dict(row) for row in c.fetchall()}
 
@@ -368,7 +369,6 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
 
                     existing = existing_map.get(tid)
                     if not existing:
-                        # New task from client (e.g. created on mobile)
                         c.execute("""
                             INSERT INTO tasks (id, source, sender, title, body, sent_at, due_date, task_status, response_status, responded_at, is_deleted, deleted_at, alert_triggered, last_alert_at, alert_count, updated_at)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -382,7 +382,6 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                         ))
                         synced_in += 1
                     else:
-                        # Existing task: update if client has newer status/response
                         client_responded = (ct.get('response_status') == 'responded' and existing.get('response_status') != 'responded')
                         client_deleted = (bool(ct.get('is_deleted')) and not bool(existing.get('is_deleted')))
                         client_done = (ct.get('task_status') == 'done' and existing.get('task_status') != 'done')
@@ -413,7 +412,6 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
 
                 conn.commit()
 
-                # Fetch merged full task list to send back to client
                 c.execute('SELECT * FROM tasks ORDER BY sent_at DESC')
                 merged_tasks = []
                 for r in c.fetchall():
@@ -622,6 +620,11 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404)
 
     def do_GET(self):
+        # هدایت مسیر ریشه یا خالی به tasks.html
+        clean_url_path = self.path.split('?')[0]
+        if clean_url_path in ('', '/', '/index', '/index.html'):
+            self.path = '/tasks.html'
+
         # اطلاعات وضعیت محیط و آدرس‌های شبکه
         if self.path == '/api/env':
             self.send_json(200, {
@@ -719,10 +722,6 @@ class TaskHubHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(500, {'error': f'خطا در بارگذاری اطلاعات: {str(e)}'})
             return
 
-        # هدایت مسیر ریشه به tasks.html
-        elif self.path in ('/', '/index', '/index.html'):
-            self.path = '/tasks.html'
-
         super().do_GET()
 
 
@@ -733,10 +732,10 @@ def run_server():
     print(f'  سرور میز مدیریت تسک‌ها (sovapp) - {env_label}')
     print(f'  دیتابیس فعال: data/{DB_FILENAME}')
     print(f'  آدرس لوکال: http://localhost:{PORT}/tasks.html')
-    print(f'  آدرس برای دسترسی در شبکه وای‌فای (پورت {PORT}):')
-    for ip in all_ips:
-        hint = ' (وای‌فای اصلی)' if ip.startswith('192.168.') or ip.startswith('10.') else ''
-        print(f'    -> http://{ip}:{PORT}/tasks.html{hint}')
+    if all_ips:
+        print(f'  آدرس واقعی در شبکه وای‌فای (برای باز کردن روی گوشی):')
+        for ip in all_ips:
+            print(f'    -> http://{ip}:{PORT}/tasks.html')
     print('=' * 65)
 
     # Start background alert monitor

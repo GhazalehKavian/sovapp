@@ -109,54 +109,165 @@
           </button>
         </div>
 
-        <!-- Controls -->
+        <!-- Controls (Left Side in RTL) -->
         <div class="flex items-center gap-2">
-          <!-- دکمه تست اعلان گوشی -->
-          <button onclick="testMobileNotification()" title="ارسال پیام تست به گوشی اندروید" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-fuchsia-950/40 border border-fuchsia-900/60 text-fuchsia-300 hover:bg-fuchsia-900/60 transition">
-            <i data-lucide="smartphone" class="w-4 h-4 text-fuchsia-500"></i>
-            <span>تست اعلان گوشی</span>
-          </button>
-
-          <!-- نشانگر SQLite -->
-          <div id="diskSyncBadge" title="دیتابیس SQLite متصل است" class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-900 text-emerald-300 text-xs font-medium">
-            <i data-lucide="database" class="w-3.5 h-3.5 text-emerald-500"></i>
-            <span id="diskSyncText">SQLite: فعال</span>
-          </div>
-
-          <!-- همگام‌سازی Wi-Fi -->
-          <button id="wifiSyncBtn" onclick="openWifiSyncModal()" title="همگام‌سازی صندوق کارهای مشترک در شبکه Wi-Fi" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-sky-950/40 border border-sky-900/60 text-sky-300 hover:bg-sky-900/60 transition">
-            <i data-lucide="wifi" class="w-4 h-4 text-sky-400"></i>
-            <span class="hidden sm:inline">همگام‌سازی Wi-Fi</span>
-          </button>
-
-          <!-- راهنما -->
-          <button onclick="openGuideModal()" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-amber-950/40 border border-amber-900/60 text-amber-300 hover:bg-amber-900/60 transition">
-            <i data-lucide="book-open" class="w-4 h-4 text-amber-500"></i>
-            <span>راهنما</span>
-          </button>
-
-          <!-- تایمر ۱۵ دقیقه‌ای معکوس -->
-          <div id="syncCountdownWrapper" onclick="forceManualSync()" title="کلیک کنید تا همین الان بروزرسانی شود" class="cursor-pointer hover:bg-slate-800 transition hidden sm:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-slate-900 text-slate-300 border border-slate-800">
-            <i id="syncSpinIcon" data-lucide="refresh-cw" class="w-3.5 h-3.5 text-sky-500 animate-spin" style="animation-duration: 6s;"></i>
-            <span>بروزرسانی:</span>
-            <span id="syncCountdown" class="font-mono font-bold text-sky-400">۱۵:۰۰</span>
-          </div>
-
-          <!-- مانیتورینگ -->
-          <button id="monitoringBtn" onclick="toggleMonitoring()" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-emerald-950/60 text-emerald-300">
-            <i id="monitoringIcon" data-lucide="bell" class="w-4 h-4"></i>
-            <span id="monitoringText" class="hidden xl:inline">مانیتورینگ: فعال</span>
-          </button>
-
-          <!-- ثبت تسک -->
-          <button onclick="openAddTaskModal()" class="inline-flex items-center gap-1 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-sky-700 transition">
+          <!-- ثبت تسک جدید -->
+          <button onclick="openAddTaskModal()" class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition">
             <i data-lucide="plus" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">ثبت تسک</span>
+            <span>ثبت تسک</span>
+          </button>
+
+          <!-- دکمه منوی امکانات و کارهای فرعی (سمت چپ) -->
+          <button id="sideMenuBtn" onclick="toggleSideMenu()" title="مشاهده امکانات جانبی، همگام‌سازی و تست‌ها" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition shadow-sm">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4 text-sky-400"></i>
+            <span class="hidden sm:inline">امکانات جانبی</span>
           </button>
         </div>
       </div>
     </div>
   </nav>
+
+  <!-- ================= SIDE DRAWER: منوی کارهای فرعی و ابزارها (سمت چپ) ================= -->
+  <div id="sideMenuBackdrop" onclick="closeSideMenu()" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden transition-opacity"></div>
+  <aside id="sideMenuDrawer" class="fixed top-0 left-0 bottom-0 z-50 w-80 sm:w-96 bg-[#0b0f19] border-r border-slate-800 shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out text-slate-100">
+    
+    <!-- Drawer Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-[#070b14]">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-sm text-slate-100">امکانات جانبی و ابزارها</h3>
+          <p class="text-[11px] text-slate-400">تنظیمات، همگام‌سازی و تست‌های سیستم</p>
+        </div>
+      </div>
+      <button onclick="closeSideMenu()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Drawer Content (Scrollable) -->
+    <div class="flex-1 p-4 overflow-y-auto space-y-3.5 text-xs scrollbar-visible">
+      
+      <!-- ۱. همگام‌سازی Wi-Fi -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="wifi" class="w-4 h-4 text-sky-400"></i>
+            <span>همگام‌سازی Wi-Fi</span>
+          </span>
+          <span class="text-[11px] text-sky-400 bg-sky-950/60 border border-sky-900/60 px-2 py-0.5 rounded-full font-medium">شبکه محلی</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          اتصال گوشی به کامپیوتر در یک Wi-Fi مشترک و تبادل دوطرفه تسک‌ها.
+        </p>
+        <button onclick="closeSideMenu(); openWifiSyncModal();" class="w-full py-2 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-800/80 text-sky-300 font-bold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          <span>مدیریت اتصال و همگام‌سازی</span>
+        </button>
+      </div>
+
+      <!-- ۲. تست نوتیفیکیشن موبایل -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="smartphone" class="w-4 h-4 text-fuchsia-400"></i>
+            <span>اعلان موبایل (ntfy)</span>
+          </span>
+          <span class="text-[11px] text-fuchsia-400 bg-fuchsia-950/60 border border-fuchsia-900/60 px-2 py-0.5 rounded-full font-medium">هشدار ۴۸h</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          ارسال یک پیام تست برای اطمینان از دریافت آلارم‌ها روی گوشی همراه.
+        </p>
+        <button onclick="testMobileNotification()" class="w-full py-2 bg-fuchsia-950/50 hover:bg-fuchsia-900/60 border border-fuchsia-900/80 text-fuchsia-300 font-bold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i>
+          <span>ارسال اعلان تست به گوشی</span>
+        </button>
+      </div>
+
+      <!-- ۳. راهنمای اتصالات -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i>
+            <span>راهنمای جامع کاربری</span>
+          </span>
+          <span class="text-[11px] text-amber-400 bg-amber-950/60 border border-amber-900/60 px-2 py-0.5 rounded-full font-medium">مستندات</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          راهنمای دریافت توکن جیرا، ساخت کلاینت جیمیل، اوت‌لوک و نوتیفیکیشن.
+        </p>
+        <button onclick="closeSideMenu(); openGuideModal();" class="w-full py-2 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-900/60 text-amber-300 font-bold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+          <span>مشاهده راهنما</span>
+        </button>
+      </div>
+
+      <!-- ۴. وضعیت مانیتورینگ خودکار -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="bell" class="w-4 h-4 text-emerald-400"></i>
+            <span>پایش و مانیتورینگ</span>
+          </span>
+          <button id="drawerMonitoringBtn" onclick="toggleMonitoring()" class="text-[11px] text-emerald-300 bg-emerald-950/60 border border-emerald-900 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-900/80 transition">
+            <span id="drawerMonitoringText">فعال</span>
+          </button>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          پایش خودکار مهلت تسک‌ها و اعلام کارهای نیازمند اقدام فوری.
+        </p>
+      </div>
+
+      <!-- ۵. بروزرسانی فوری و تایمر -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-sky-400"></i>
+            <span>بروزرسانی سرویس‌ها</span>
+          </span>
+          <span id="drawerSyncCountdown" class="font-mono text-sky-400 font-bold">۱۵:۰۰</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          سرویس‌ها هر ۱۵ دقیقه خودکار استعلام می‌شوند؛ برای استعلام همین الان کلیک کنید:
+        </p>
+        <button onclick="forceManualSync()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+          <span>استعلام دستی فوری</span>
+        </button>
+      </div>
+
+      <!-- ۶. وضعیت دیتابیس محلی SQLite -->
+      <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-1.5">
+        <div class="flex items-center justify-between text-slate-200 font-bold">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+            <span>پایگاه داده SQLite</span>
+          </span>
+          <span id="drawerDbBadge" class="text-[11px] text-emerald-400 font-mono">متصل</span>
+        </div>
+        <div class="text-[11px] text-slate-400 space-y-0.5">
+          <div>فایل دیتابیس: <code id="drawerDbFilename" class="text-slate-300 font-mono">tasks.db</code></div>
+          <div>محیط: <span id="drawerEnvLabel" class="text-slate-300 font-semibold">تولید / مشتری</span></div>
+        </div>
+      </div>
+
+      <!-- ۷. بازنشانی سیستم -->
+      <div class="pt-2">
+        <button onclick="factoryResetApp()" class="w-full py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>پاکسازی حافظه موقت (Reset)</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="px-5 py-3 border-t border-slate-800 bg-[#070b14] text-[11px] text-slate-500 text-center">
+      میز پیگیری تسک‌ها (sovapp) • نگارش امن
+    </div>
+  </aside>
 
   <!-- ================= VIEW 1: TASK FEED ================= -->
   <main id="viewFeed" class="max-w-[98%] 2xl:max-w-[1750px] mx-auto px-2 py-5 sm:px-4">
@@ -273,7 +384,7 @@
   </main>
 
   <!-- ================= MODAL: اتصالات ================= -->
-  <div id="connectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 hidden">
+  <div id="connectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 hidden transition-opacity duration-200">
     <div class="w-full max-w-md rounded-2xl bg-[#0f172a] p-6 shadow-2xl border border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-800">
         <h3 id="connectModalTitle" class="font-bold text-slate-100">تنظیم اتصال</h3>
@@ -320,7 +431,7 @@
   </div>
 
   <!-- ================= MODAL: تقویم شمسی ================= -->
-  <div id="jalaliPickerModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 hidden">
+  <div id="jalaliPickerModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 hidden transition-opacity duration-200">
     <div class="w-full max-w-sm rounded-2xl bg-[#0f172a] p-5 shadow-2xl border border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-800">
         <h3 class="font-bold text-sm text-slate-100">انتخاب مهلت انجام (شمسی)</h3>
@@ -355,7 +466,7 @@
   </div>
 
   <!-- ================= MODAL: ADD TASK ================= -->
-  <div id="addTaskModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 hidden">
+  <div id="addTaskModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 hidden transition-opacity duration-200">
     <div class="w-full max-w-lg rounded-2xl bg-[#0f172a] p-6 shadow-2xl border border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-800">
         <h3 class="font-bold text-slate-100">ثبت تسک جدید</h3>
@@ -393,7 +504,7 @@
   </div>
 
   <!-- ================= MODAL: راهنمای سیستم و اتصالات ================= -->
-  <div id="guideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 hidden backdrop-blur-sm transition-opacity">
+  <div id="guideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-3 sm:p-4 hidden transition-opacity duration-200">
     <div class="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0f172a] shadow-2xl border border-slate-800 overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-150">
       
       <!-- Header -->
@@ -569,7 +680,7 @@
 
   
   <!-- ================= MODAL: همگام‌سازی وای‌فای (Wi-Fi Sync) ================= -->
-  <div id="wifiSyncModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 hidden backdrop-blur-sm transition-opacity">
+  <div id="wifiSyncModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-3 sm:p-4 hidden transition-opacity duration-200">
     <div class="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0f172a] shadow-2xl border border-slate-800 overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-150">
       
       <!-- Header -->
@@ -876,6 +987,10 @@
               envBadge.classList.add('hidden');
             }
           }
+          const drawerEnvLabel = document.getElementById('drawerEnvLabel');
+          if (drawerEnvLabel) drawerEnvLabel.innerText = (data.env === 'test') ? 'محیط تست (آزمایشی)' : 'محیط اصلی و پایدار';
+          const drawerDbFilename = document.getElementById('drawerDbFilename');
+          if (drawerDbFilename && data.db) drawerDbFilename.innerText = data.db;
         }
       } catch (err) {
         console.warn("خطا در بارگذاری اولیه:", err);
@@ -1654,33 +1769,83 @@ function switchGuideTab(tab) {
     
     let cachedNetworkIps = [];
 
-    function openWifiSyncModal() {
+    function toggleSideMenu() {
+      const drawer = document.getElementById('sideMenuDrawer');
+      const backdrop = document.getElementById('sideMenuBackdrop');
+      if (drawer && backdrop) {
+        const isClosed = drawer.classList.contains('-translate-x-full');
+        if (isClosed) {
+          drawer.classList.remove('-translate-x-full');
+          backdrop.classList.remove('hidden');
+        } else {
+          drawer.classList.add('-translate-x-full');
+          backdrop.classList.add('hidden');
+        }
+        lucide.createIcons();
+      }
+    }
+
+    function closeSideMenu() {
+      const drawer = document.getElementById('sideMenuDrawer');
+      const backdrop = document.getElementById('sideMenuBackdrop');
+      if (drawer) drawer.classList.add('-translate-x-full');
+      if (backdrop) backdrop.classList.add('hidden');
+    }
+
+    async function openWifiSyncModal() {
       const modal = document.getElementById('wifiSyncModal');
       if (!modal) return;
 
       const ipListContainer = document.getElementById('wifiIpList');
       const currentPort = window.location.port || '8000';
-      const currentHost = window.location.hostname;
+
+      // Fetch fresh network IPs dynamically from server
+      let validIps = [];
+      try {
+        const res = await fetch('/api/env');
+        if (res.ok) {
+          const envData = await res.json();
+          validIps = (envData.network_ips || []).filter(ip => !ip.startsWith('127.') && ip !== 'localhost');
+          if (envData.db) {
+            const dbNameEl = document.getElementById('drawerDbFilename');
+            if (dbNameEl) dbNameEl.innerText = envData.db;
+          }
+        }
+      } catch (e) {}
+
+      if (validIps.length === 0 && cachedNetworkIps.length > 0) {
+        validIps = cachedNetworkIps.filter(ip => !ip.startsWith('127.') && ip !== 'localhost');
+      }
 
       ipListContainer.innerHTML = '';
-      const displayIps = (cachedNetworkIps.length > 0) ? cachedNetworkIps : [currentHost, '127.0.0.1'];
-
-      displayIps.forEach(ip => {
-        const fullUrl = `http://${ip}:${currentPort}/tasks.html`;
-        ipListContainer.innerHTML += `
-          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/80 border border-slate-800">
-            <span class="font-mono text-xs text-sky-300 font-semibold truncate select-all" dir="ltr">${fullUrl}</span>
-            <button onclick="navigator.clipboard.writeText('${fullUrl}'); alert('آدرس کپی شد: ${fullUrl}');" class="px-2.5 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
-              کپی
-            </button>
+      if (validIps.length > 0) {
+        validIps.forEach(ip => {
+          const fullUrl = `http://${ip}:${currentPort}/tasks.html`;
+          const shortUrl = `http://${ip}:${currentPort}`;
+          ipListContainer.innerHTML += `
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/80 border border-slate-800">
+              <div class="flex flex-col truncate pr-1">
+                <span class="font-mono text-xs text-sky-300 font-bold select-all" dir="ltr">${fullUrl}</span>
+                <span class="text-[10px] text-slate-500 font-mono" dir="ltr">یا آدرس کوتاه: ${shortUrl}</span>
+              </div>
+              <button type="button" onclick="navigator.clipboard.writeText('${fullUrl}'); alert('آدرس کپی شد:\n${fullUrl}\n\nاین آدرس را در مرورگر گوشی باز کنید.');" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition flex-shrink-0">
+                کپی آدرس
+              </button>
+            </div>
+          `;
+        });
+      } else {
+        ipListContainer.innerHTML = `
+          <div class="p-3 text-amber-300 bg-amber-950/30 border border-amber-900/50 rounded-lg text-xs">
+            سیستم آی‌پی شبکه فعالی پیدا نکرد. لطفاً مطمئن شوید کامپیوتر به وای‌فای یا مودم وصل است.
           </div>
         `;
-      });
+      }
 
       const serverInput = document.getElementById('wifiServerUrlInput');
       if (serverInput) {
-        const savedUrl = localStorage.getItem('wifi_sync_server_url') || window.location.origin;
-        serverInput.value = savedUrl;
+        const defaultTarget = validIps.length > 0 ? `http://${validIps[0]}:${currentPort}` : window.location.origin;
+        serverInput.value = localStorage.getItem('wifi_sync_server_url') || defaultTarget;
       }
 
       modal.classList.remove('hidden');
@@ -1759,7 +1924,15 @@ function switchGuideTab(tab) {
 
     function toggleMonitoring() {
       monitoring = !monitoring;
-      document.getElementById('monitoringText').innerText = monitoring ? 'مانیتورینگ: فعال' : 'مانیتورینگ: غیرفعال';
+      const monText = document.getElementById('monitoringText');
+      if (monText) monText.innerText = monitoring ? 'مانیتورینگ: فعال' : 'مانیتورینگ: غیرفعال';
+      const drawerText = document.getElementById('drawerMonitoringText');
+      if (drawerText) {
+        drawerText.innerText = monitoring ? 'فعال' : 'غیرفعال';
+        drawerText.parentElement.className = monitoring
+          ? 'text-[11px] text-emerald-300 bg-emerald-950/60 border border-emerald-900 px-2.5 py-1 rounded-lg font-bold'
+          : 'text-[11px] text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg font-bold';
+      }
     }
 
     function factoryResetApp() {
